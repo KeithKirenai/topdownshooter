@@ -38,13 +38,16 @@ mouse_filter = 2
 [node name="BGM" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("4")
 volume_db = -8.0
+bus = &"Standard"
 
 [node name="IntermissionBGM" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("5")
 volume_db = -10.0
+bus = &"Standard"
 
 [node name="GameOverSound" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("3")
+bus = &"Priority"
 
 [connection signal="timeout" from="SpawnTimer" to="." method="_on_countdown_done"]
 [connection signal="finished" from="BGM" to="." method="_on_bgm_finished"]

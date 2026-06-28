@@ -25,6 +25,8 @@ scale = Vector2(1.5, 1.5)
 
 [node name="HitSound" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("3")
+bus = &"Standard"
 
 [node name="ExplosionSound" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("4")
+bus = &"Standard"

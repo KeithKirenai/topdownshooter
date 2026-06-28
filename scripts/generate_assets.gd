@@ -42,6 +42,11 @@ func _initialize() -> void:
 
 	create_player_sheet(C)
 	create_enemy_sheet(C)
+	create_bat_sheet(C)
+	create_skeleton_sheet(C)
+	create_ghost_sheet(C)
+	create_zombie_sheet(C)
+	create_werewolf_sheet(C)
 	create_ground_tile(C)
 	create_heart(C)
 	create_bullet_pistol(C)
@@ -66,8 +71,12 @@ func _initialize() -> void:
 	quit()
 
 
+var _clip_min_y := 0
+var _clip_max_y := 99999
+
+
 func px(img: Image, x: int, y: int, color: Color) -> void:
-	if x >= 0 and x < img.get_width() and y >= 0 and y < img.get_height():
+	if x >= 0 and x < img.get_width() and y >= _clip_min_y and y < _clip_max_y and y >= 0 and y < img.get_height():
 		img.set_pixel(x, y, color)
 
 
@@ -198,7 +207,12 @@ func create_player_sheet(C: Dictionary) -> void:
 		for frame in range(cols):
 			var fx := frame * fw
 			var fy := dir * fh
+			_clip_min_y = fy
+			_clip_max_y = fy + fh
 			draw_player_frame(img, C, fx, fy, dir, frame)
+
+	_clip_min_y = 0
+	_clip_max_y = 99999
 
 	var err := img.save_png("res://assets/sprites/player.png")
 	if err != OK:
@@ -217,11 +231,409 @@ func create_enemy_sheet(C: Dictionary) -> void:
 		for frame in range(cols):
 			var fx := frame * fw
 			var fy := dir * fh
+			_clip_min_y = fy
+			_clip_max_y = fy + fh
 			draw_enemy_frame(img, C, fx, fy, dir, frame)
+
+	_clip_min_y = 0
+	_clip_max_y = 99999
 
 	var err := img.save_png("res://assets/sprites/enemy.png")
 	if err != OK:
 		push_error("Failed to save enemy.png: ", err)
+
+
+func draw_bat_frame(img: Image, C: Dictionary, fx: int, fy: int, _dir: int, frame: int) -> void:
+	var cx: int = fx + 8
+	var cy: int = fy + 8
+	
+	# Shaded body (dark purple-grey)
+	circle(img, cx, cy, 3, Color(0.18, 0.18, 0.22))
+	circle(img, cx, cy + 1, 2, Color(0.12, 0.12, 0.15))
+	
+	# Head
+	circle(img, cx, cy - 3, 2, Color(0.18, 0.18, 0.22))
+	# Glowing red eyes
+	px(img, cx - 1, cy - 3, Color.RED)
+	px(img, cx + 1, cy - 3, Color.RED)
+	# Tiny white fangs
+	px(img, cx - 1, cy - 1, Color.WHITE)
+	px(img, cx + 1, cy - 1, Color.WHITE)
+
+	# Wings flapping animation based on frame
+	var wing_color := Color(0.12, 0.12, 0.15)
+	var membrane_color := Color(0.28, 0.18, 0.32) # Dark purple membrane
+	
+	if frame == 0:
+		# Wings spread flat (horizontal)
+		rect(img, fx + 1, cy - 1, 4, 1, wing_color)
+		rect(img, fx + 1, cy, 4, 2, membrane_color)
+		rect(img, fx + 11, cy - 1, 4, 1, wing_color)
+		rect(img, fx + 11, cy, 4, 2, membrane_color)
+		px(img, fx, cy - 2, wing_color)
+		px(img, fx + 15, cy - 2, wing_color)
+	elif frame == 1:
+		# Wings folded up
+		rect(img, fx + 2, cy - 4, 1, 4, wing_color)
+		rect(img, fx + 3, cy - 3, 2, 3, membrane_color)
+		rect(img, fx + 13, cy - 4, 1, 4, wing_color)
+		rect(img, fx + 11, cy - 3, 2, 3, membrane_color)
+		px(img, fx + 1, cy - 5, wing_color)
+		px(img, fx + 14, cy - 5, wing_color)
+	else:
+		# Wings folded down
+		rect(img, fx + 2, cy + 1, 1, 4, wing_color)
+		rect(img, fx + 3, cy + 1, 2, 3, membrane_color)
+		rect(img, fx + 13, cy + 1, 1, 4, wing_color)
+		rect(img, fx + 11, cy + 1, 2, 3, membrane_color)
+		px(img, fx + 1, cy + 5, wing_color)
+		px(img, fx + 14, cy + 5, wing_color)
+
+
+func draw_skeleton_frame(img: Image, C: Dictionary, fx: int, fy: int, _dir: int, frame: int) -> void:
+	var cx: int = fx + 8
+	var cy: int = fy + 8
+	var bone_color := Color(0.92, 0.90, 0.84)
+	var shadow_color := Color(0.12, 0.12, 0.15)
+	
+	# Skull
+	rect(img, cx - 3, cy - 5, 7, 5, bone_color)
+	px(img, cx - 1, cy - 3, shadow_color)
+	px(img, cx + 1, cy - 3, shadow_color)
+	px(img, cx - 1, cy - 3, Color(1.0, 0.2, 0.1)) # glowing eye embers
+	px(img, cx + 1, cy - 3, Color(1.0, 0.2, 0.1))
+	px(img, cx - 2, cy - 1, shadow_color)
+	px(img, cx, cy - 1, shadow_color)
+	px(img, cx + 2, cy - 1, shadow_color)
+
+	# Rusted metal soldier helmet
+	rect(img, cx - 4, cy - 6, 9, 2, Color(0.35, 0.35, 0.38))
+	px(img, cx, cy - 7, Color(0.55, 0.55, 0.58))
+	px(img, cx - 4, cy - 4, Color(0.25, 0.25, 0.28))
+
+	# Bony Ribcage & Spine
+	rect(img, cx - 1, cy, 3, 5, bone_color)
+	rect(img, cx - 3, cy + 1, 7, 1, bone_color)
+	rect(img, cx - 3, cy + 3, 7, 1, bone_color)
+	rect(img, cx - 1, cy + 1, 3, 3, shadow_color)
+	
+	# Tattered leather straps
+	px(img, cx - 3, cy, Color(0.38, 0.24, 0.16))
+	px(img, cx + 3, cy, Color(0.38, 0.24, 0.16))
+	px(img, cx - 2, cy + 2, Color(0.38, 0.24, 0.16))
+	px(img, cx + 2, cy + 2, Color(0.38, 0.24, 0.16))
+
+	# Bony limbs
+	var lx: int = fx + 4
+	var rx: int = fx + 11
+	var leg_y: int = fy + 11
+	if frame == 0:
+		rect(img, lx, leg_y, 1, 4, bone_color)
+		px(img, lx - 1, leg_y + 3, bone_color)
+		rect(img, rx, leg_y, 1, 4, bone_color)
+		px(img, rx + 1, leg_y + 3, bone_color)
+	elif frame == 1:
+		rect(img, lx, leg_y - 1, 1, 3, bone_color)
+		px(img, lx - 1, leg_y + 1, bone_color)
+		rect(img, rx, leg_y + 1, 1, 4, bone_color)
+		px(img, rx + 1, leg_y + 4, bone_color)
+	else:
+		rect(img, lx, leg_y + 1, 1, 4, bone_color)
+		px(img, lx - 1, leg_y + 4, bone_color)
+		rect(img, rx, leg_y - 1, 1, 3, bone_color)
+		px(img, rx + 1, leg_y + 1, bone_color)
+
+
+func draw_ghost_frame(img: Image, C: Dictionary, fx: int, fy: int, _dir: int, frame: int) -> void:
+	var cx: int = fx + 8
+	var cy: int = fy + 8
+	var ghost_color := Color(0.7, 0.92, 1.0, 0.55) # Translucent cyan
+	var rune_color := Color(0.2, 0.9, 1.0, 0.9) # Glowing runes
+	
+	# Shrouded head and body
+	circle(img, cx, cy - 3, 5, ghost_color)
+	rect(img, cx - 4, cy - 1, 9, 6, ghost_color)
+	
+	# Hollow screaming face
+	circle(img, cx - 2, cy - 3, 1, Color(0, 0, 0, 0.6))
+	circle(img, cx + 2, cy - 3, 1, Color(0, 0, 0, 0.6))
+	rect(img, cx - 1, cy - 1, 3, 3, Color(0, 0, 0, 0.7))
+	
+	# Glowing runes
+	if frame == 0:
+		px(img, cx, cy + 2, rune_color)
+		px(img, cx, cy + 4, rune_color)
+	elif frame == 1:
+		px(img, cx - 1, cy + 1, rune_color)
+		px(img, cx + 1, cy + 3, rune_color)
+	else:
+		px(img, cx + 1, cy + 1, rune_color)
+		px(img, cx - 1, cy + 3, rune_color)
+		
+	# Floating detached hands
+	var hand_y: int = cy + 1 + int(sin(frame * 2.0) * 1.5)
+	px(img, cx - 5, hand_y, ghost_color)
+	px(img, cx + 5, hand_y, ghost_color)
+	
+	# Wispy tail
+	var tail_y: int = fy + 12
+	if frame == 0:
+		px(img, cx - 3, tail_y, ghost_color)
+		px(img, cx - 1, tail_y + 1, ghost_color)
+		px(img, cx + 1, tail_y + 2, ghost_color)
+		px(img, cx + 3, tail_y + 1, ghost_color)
+	elif frame == 1:
+		px(img, cx - 2, tail_y + 1, ghost_color)
+		px(img, cx, tail_y + 2, ghost_color)
+		px(img, cx + 2, tail_y + 1, ghost_color)
+	else:
+		px(img, cx - 3, tail_y + 2, ghost_color)
+		px(img, cx - 1, tail_y + 1, ghost_color)
+		px(img, cx + 1, tail_y + 1, ghost_color)
+		px(img, cx + 3, tail_y + 2, ghost_color)
+
+
+func draw_zombie_frame(img: Image, C: Dictionary, fx: int, fy: int, _dir: int, frame: int) -> void:
+	var cx: int = fx + 8
+	var cy: int = fy + 8
+	var skin_color := Color(0.42, 0.58, 0.28) # Rotting green
+	var clothes_orange := Color(0.85, 0.45, 0.15)
+	var clothes_grey := Color(0.28, 0.28, 0.32)
+	var pants_color := Color(0.22, 0.32, 0.48)
+	
+	# Rotting head
+	circle(img, cx, cy - 4, 4, skin_color)
+	# Brains
+	px(img, cx - 2, cy - 7, Color(1.0, 0.6, 0.65))
+	px(img, cx - 1, cy - 7, Color(1.0, 0.5, 0.55))
+	
+	# Asymmetrical eyes
+	px(img, cx - 2, cy - 4, Color.WHITE)
+	px(img, cx - 2, cy - 3, Color.BLACK)
+	px(img, cx + 1, cy - 4, Color(0.12, 0.12, 0.15))
+	
+	# Floppy jaw
+	rect(img, cx - 1, cy - 1, 3, 1, Color(0.12, 0.12, 0.15))
+
+	# Tattered shirt
+	rect(img, cx - 4, cy, 9, 3, clothes_orange)
+	rect(img, cx - 4, cy + 3, 9, 2, clothes_grey)
+	
+	# Exposed ribs
+	px(img, cx - 1, cy + 1, Color(1.0, 0.85, 0.9))
+	px(img, cx + 1, cy + 1, Color(1.0, 0.85, 0.9))
+	px(img, cx, cy + 1, Color(0.75, 0.15, 0.2))
+
+	# Outstretched arms
+	if _dir == 1:
+		rect(img, fx + 1, cy + 1, 4, 1, skin_color)
+	else:
+		rect(img, fx + 11, cy + 1, 4, 1, skin_color)
+
+	# Torn pants (Legs)
+	var lx: int = fx + 4
+	var rx: int = fx + 10
+	var leg_y: int = fy + 10
+	
+	if frame == 0:
+		rect(img, lx, leg_y, 2, 5, pants_color)
+		rect(img, rx, leg_y, 2, 5, pants_color)
+		px(img, lx + 1, leg_y + 2, skin_color) # rip expose green flesh
+		rect(img, lx, leg_y + 4, 2, 1, skin_color)
+		rect(img, rx, leg_y + 4, 2, 1, skin_color)
+	elif frame == 1:
+		rect(img, lx, leg_y - 1, 2, 4, pants_color)
+		rect(img, rx, leg_y + 1, 2, 4, pants_color)
+		rect(img, lx, leg_y + 3, 2, 1, skin_color)
+		rect(img, rx, leg_y + 4, 2, 1, skin_color)
+	else:
+		rect(img, lx, leg_y + 1, 2, 4, pants_color)
+		rect(img, rx, leg_y - 1, 2, 4, pants_color)
+		rect(img, lx, leg_y + 4, 2, 1, skin_color)
+		rect(img, rx, leg_y + 3, 2, 1, skin_color)
+
+
+func draw_werewolf_frame(img: Image, C: Dictionary, fx: int, fy: int, _dir: int, frame: int) -> void:
+	var cx: int = fx + 8
+	var cy: int = fy + 8
+	var fur_main := Color(0.24, 0.20, 0.18) # Dark brown fur
+	var mane_color := Color(0.48, 0.48, 0.52) # Silver grey mane
+	var chain_color := Color(0.65, 0.65, 0.70) # Iron cuffs/chains
+	
+	# Hunched body
+	circle(img, cx, cy + 2, 4, fur_main)
+	rect(img, cx - 4, cy - 1, 9, 6, fur_main)
+	
+	# Mane
+	rect(img, cx - 5, cy - 2, 11, 2, mane_color)
+	px(img, cx - 6, cy - 1, mane_color)
+	px(img, cx + 6, cy - 1, mane_color)
+
+	# Head and snout
+	var head_x := cx
+	var head_y := cy - 3
+	circle(img, head_x, head_y, 3, fur_main)
+	rect(img, head_x - 3, head_y - 3, 7, 1, mane_color)
+	
+	if _dir == 1:
+		rect(img, head_x - 5, head_y, 2, 2, fur_main)
+		px(img, head_x - 5, head_y + 2, Color.WHITE) # fangs
+		px(img, head_x - 3, head_y - 1, Color.YELLOW) # glowing eyes
+	else:
+		rect(img, head_x + 3, head_y, 2, 2, fur_main)
+		px(img, head_x + 4, head_y + 2, Color.WHITE)
+		px(img, head_x + 2, head_y - 1, Color.YELLOW)
+		
+	# Ears
+	px(img, head_x - 2, head_y - 4, fur_main)
+	px(img, head_x + 2, head_y - 4, fur_main)
+	px(img, head_x - 1, head_y - 4, Color(0.7, 0.4, 0.4))
+	px(img, head_x + 1, head_y - 4, Color(0.7, 0.4, 0.4))
+
+	# Broken cuffs/chains
+	px(img, cx - 4, cy + 3, Color(0.12, 0.12, 0.15))
+	px(img, cx - 4, cy + 4, chain_color)
+	px(img, cx - 5, cy + 5, chain_color)
+	
+	px(img, cx + 4, cy + 3, Color(0.12, 0.12, 0.15))
+	px(img, cx + 4, cy + 4, chain_color)
+	px(img, cx + 5, cy + 5, chain_color)
+
+	# Legs and white claws
+	var lx: int = fx + 3
+	var rx: int = fx + 10
+	var leg_y: int = fy + 12
+	
+	if frame == 0:
+		rect(img, lx, leg_y, 3, 3, fur_main)
+		rect(img, rx, leg_y, 3, 3, fur_main)
+		px(img, lx, leg_y + 2, Color.WHITE)
+		px(img, rx + 2, leg_y + 2, Color.WHITE)
+	elif frame == 1:
+		rect(img, lx, leg_y - 1, 3, 3, fur_main)
+		rect(img, rx, leg_y + 1, 3, 3, fur_main)
+		px(img, lx, leg_y + 1, Color.WHITE)
+		px(img, rx + 2, leg_y + 3, Color.WHITE)
+	else:
+		rect(img, lx, leg_y + 1, 3, 3, fur_main)
+		rect(img, rx, leg_y - 1, 3, 3, fur_main)
+		px(img, lx, leg_y + 3, Color.WHITE)
+		px(img, rx + 2, leg_y + 1, Color.WHITE)
+
+
+func create_bat_sheet(C: Dictionary) -> void:
+	var fw := 16
+	var fh := 16
+	var cols := 3
+	var rows := 4
+	var img := Image.create(fw * cols, fh * rows, false, Image.FORMAT_RGBA8)
+	img.fill(C.transparent)
+
+	for dir in range(rows):
+		for frame in range(cols):
+			var fx := frame * fw
+			var fy := dir * fh
+			_clip_min_y = fy
+			_clip_max_y = fy + fh
+			draw_bat_frame(img, C, fx, fy, dir, frame)
+
+	_clip_min_y = 0
+	_clip_max_y = 99999
+	var err := img.save_png("res://assets/sprites/enemy_bat.png")
+	if err != OK:
+		push_error("Failed to save enemy_bat.png: ", err)
+
+
+func create_skeleton_sheet(C: Dictionary) -> void:
+	var fw := 16
+	var fh := 16
+	var cols := 3
+	var rows := 4
+	var img := Image.create(fw * cols, fh * rows, false, Image.FORMAT_RGBA8)
+	img.fill(C.transparent)
+
+	for dir in range(rows):
+		for frame in range(cols):
+			var fx := frame * fw
+			var fy := dir * fh
+			_clip_min_y = fy
+			_clip_max_y = fy + fh
+			draw_skeleton_frame(img, C, fx, fy, dir, frame)
+
+	_clip_min_y = 0
+	_clip_max_y = 99999
+	var err := img.save_png("res://assets/sprites/enemy_skeleton.png")
+	if err != OK:
+		push_error("Failed to save enemy_skeleton.png: ", err)
+
+
+func create_ghost_sheet(C: Dictionary) -> void:
+	var fw := 16
+	var fh := 16
+	var cols := 3
+	var rows := 4
+	var img := Image.create(fw * cols, fh * rows, false, Image.FORMAT_RGBA8)
+	img.fill(C.transparent)
+
+	for dir in range(rows):
+		for frame in range(cols):
+			var fx := frame * fw
+			var fy := dir * fh
+			_clip_min_y = fy
+			_clip_max_y = fy + fh
+			draw_ghost_frame(img, C, fx, fy, dir, frame)
+
+	_clip_min_y = 0
+	_clip_max_y = 99999
+	var err := img.save_png("res://assets/sprites/enemy_ghost.png")
+	if err != OK:
+		push_error("Failed to save enemy_ghost.png: ", err)
+
+
+func create_zombie_sheet(C: Dictionary) -> void:
+	var fw := 16
+	var fh := 16
+	var cols := 3
+	var rows := 4
+	var img := Image.create(fw * cols, fh * rows, false, Image.FORMAT_RGBA8)
+	img.fill(C.transparent)
+
+	for dir in range(rows):
+		for frame in range(cols):
+			var fx := frame * fw
+			var fy := dir * fh
+			_clip_min_y = fy
+			_clip_max_y = fy + fh
+			draw_zombie_frame(img, C, fx, fy, dir, frame)
+
+	_clip_min_y = 0
+	_clip_max_y = 99999
+	var err := img.save_png("res://assets/sprites/enemy_zombie.png")
+	if err != OK:
+		push_error("Failed to save enemy_zombie.png: ", err)
+
+
+func create_werewolf_sheet(C: Dictionary) -> void:
+	var fw := 16
+	var fh := 16
+	var cols := 3
+	var rows := 4
+	var img := Image.create(fw * cols, fh * rows, false, Image.FORMAT_RGBA8)
+	img.fill(C.transparent)
+
+	for dir in range(rows):
+		for frame in range(cols):
+			var fx := frame * fw
+			var fy := dir * fh
+			_clip_min_y = fy
+			_clip_max_y = fy + fh
+			draw_werewolf_frame(img, C, fx, fy, dir, frame)
+
+	_clip_min_y = 0
+	_clip_max_y = 99999
+	var err := img.save_png("res://assets/sprites/enemy_werewolf.png")
+	if err != OK:
+		push_error("Failed to save enemy_werewolf.png: ", err)
 
 
 func create_bullet_pistol(C: Dictionary) -> void:
@@ -1691,58 +2103,78 @@ func create_xbox_select() -> void:
 	var e := img.save_png("res://assets/ui/xbox_select.png")
 	if e != OK: push_error("xbox_select.png: ", e)
 
-	# Locked variant: red X overlay
-	var il := Image.create(20, 20, false, Image.FORMAT_RGBA8)
-	il.fill(Color.TRANSPARENT)
-	draw_shaded_circle_button(il, Color(0.35, 0.35, 0.38))
-	for y in [7, 10, 13]:
-		for x in range(6, 14):
-			px(il, x, y + 1, Color.BLACK)
-			px(il, x, y, Color.WHITE)
-	var xcol := Color(0.9, 0.1, 0.1)
-	for i in range(4, 14):
-		px(il, i - 4 + 3, i - 4 + 3, xcol)
-		px(il, 17 - (i - 4), i - 4 + 3, xcol)
-		px(il, i - 4 + 4, i - 4 + 3, xcol)
-		px(il, 16 - (i - 4), i - 4 + 3, xcol)
-	var el := il.save_png("res://assets/ui/xbox_select_locked.png")
-	if el != OK: push_error("xbox_select_locked.png: ", el)
 
 func create_key_space() -> void:
 	var img := Image.create(36, 14, false, Image.FORMAT_RGBA8)
 	img.fill(Color.TRANSPARENT)
 	draw_shaded_keycap(img, 0, 0, 36, 14, Color(0.32, 0.32, 0.36))
-	# Draw space bar outline accent in center
-	for i in range(8, 28):
-		px(img, i, 6, Color.BLACK)
-		px(img, i, 5, Color.WHITE)
+	# Write "SPACE" in clear 3x5 pixel font centered
+	var space_pixels := [
+		# S
+		[9, 4], [10, 4], [11, 4],
+		[9, 5],
+		[9, 6], [10, 6], [11, 6],
+		[11, 7],
+		[9, 8], [10, 8], [11, 8],
+		# P
+		[13, 4], [14, 4], [15, 4],
+		[13, 5], [15, 5],
+		[13, 6], [14, 6], [15, 6],
+		[13, 7],
+		[13, 8],
+		# A
+		[17, 4], [18, 4], [19, 4],
+		[17, 5], [19, 5],
+		[17, 6], [18, 6], [19, 6],
+		[17, 7], [19, 7],
+		[17, 8], [19, 8],
+		# C
+		[21, 4], [22, 4], [23, 4],
+		[21, 5],
+		[21, 6],
+		[21, 7],
+		[21, 8], [22, 8], [23, 8],
+		# E
+		[25, 4], [26, 4], [27, 4],
+		[25, 5],
+		[25, 6], [26, 6], [27, 6],
+		[25, 7],
+		[25, 8], [26, 8], [27, 8]
+	]
+	for p in space_pixels:
+		px(img, p[0], p[1] + 1, Color.BLACK) # shadow
+		px(img, p[0], p[1], Color.WHITE) # text
 	var e := img.save_png("res://assets/ui/key_space.png")
 	if e != OK: push_error("key_space.png: ", e)
+
 
 func create_key_tab() -> void:
 	var img := Image.create(24, 14, false, Image.FORMAT_RGBA8)
 	img.fill(Color.TRANSPARENT)
 	draw_shaded_keycap(img, 0, 0, 24, 14, Color(0.36, 0.36, 0.40))
-	# Arrow icon
-	for y in range(4, 10):
-		px(img, 10, y, Color.WHITE)
-		px(img, 11, y, Color.BLACK)
-	px(img, 12, 5, Color.WHITE)
-	px(img, 13, 6, Color.WHITE)
-	px(img, 12, 8, Color.WHITE)
-	px(img, 13, 7, Color.WHITE)
-	
-	var il := Image.create(24, 14, false, Image.FORMAT_RGBA8)
-	il.fill(Color.TRANSPARENT)
-	draw_shaded_keycap(il, 0, 0, 24, 14, Color(0.36, 0.36, 0.40))
-	var xcol := Color(0.9, 0.1, 0.1)
-	for i in range(2, 10):
-		px(il, 2 + i, 2 + i, xcol)
-		px(il, 21 - i, 2 + i, xcol)
+	# Write "TAB" in clear 3x5 pixel font centered
+	var tab_pixels := [
+		# T
+		[6, 4], [7, 4], [8, 4],
+		[7, 5], [7, 6], [7, 7], [7, 8],
+		# A
+		[10, 4], [11, 4], [12, 4],
+		[10, 5], [12, 5],
+		[10, 6], [11, 6], [12, 6],
+		[10, 7], [12, 7],
+		[10, 8], [12, 8],
+		# B
+		[14, 4], [15, 4],
+		[14, 5], [16, 5],
+		[14, 6], [15, 6],
+		[14, 7], [16, 7],
+		[14, 8], [15, 8]
+	]
+	for p in tab_pixels:
+		px(img, p[0], p[1] + 1, Color.BLACK) # shadow
+		px(img, p[0], p[1], Color.WHITE) # text
 	var e := img.save_png("res://assets/ui/key_tab.png")
 	if e != OK: push_error("key_tab.png: ", e)
-	var el := il.save_png("res://assets/ui/key_tab_locked.png")
-	if el != OK: push_error("key_tab_locked.png: ", el)
 
 func create_xbox_rt() -> void:
 	var img := Image.create(24, 12, false, Image.FORMAT_RGBA8)

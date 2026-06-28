@@ -28,6 +28,8 @@ func _on_body_entered(body: Node2D) -> void:
 		return
 	if body.has_method("refill_ammo"):
 		body.refill_ammo(0.35) # refill 35% ammo for all weapons
+	if "total_items_collected" in body:
+		body.total_items_collected += 1
 	$PickupSound.play()
 	$Sprite2D.hide()
 	$CollisionShape2D.set_deferred("disabled", true)

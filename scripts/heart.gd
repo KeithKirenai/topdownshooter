@@ -40,6 +40,8 @@ func _process(delta: float) -> void:
 func _on_body_entered(body: Node2D) -> void:
 	if not body.is_in_group("player"):
 		return
+	if "total_items_collected" in body:
+		body.total_items_collected += 1
 	$PickupSound.play()
 	var main: Node = get_tree().current_scene
 	if main:

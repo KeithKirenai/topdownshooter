@@ -20,6 +20,7 @@ centered = true
 scale = Vector2(2.0, 2.0)
 
 [node name="PickupSound" type="AudioStreamPlayer" parent="."]
+bus = &"Standard"
 
 [node name="DespawnTimer" type="Timer" parent="."]
 wait_time = 10.0
