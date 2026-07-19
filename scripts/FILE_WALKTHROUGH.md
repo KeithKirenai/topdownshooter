@@ -1,4 +1,4 @@
-# File-by-File Code Walkthrough — Top Down Shooter
+# File-by-File Code Walkthrough — Pewtopia
 
 All 25 `.gd` files broken down line-by-line (or section-by-section) explaining what each piece of code does.
 

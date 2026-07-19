@@ -1,4 +1,4 @@
-# 🔫 Top-Down Shooter (Godot 4.7)
+# 🔫 Pewtopia (Godot 4.7)
 
 A feature-rich, highly polished 2D Top-Down Shooter prototype built in **Godot Engine 4.7** using **GDScript**, utilizing a **GL Compatibility** renderer and advanced programmatic visual/audio effects.
 
@@ -40,7 +40,7 @@ A feature-rich, highly polished 2D Top-Down Shooter prototype built in **Godot E
 ## 🛠️ Project Structure
 
 ```
-top-down-shooter/
+pewtopia/
 ├── project.godot             # Godot Engine project settings
 ├── default_bus_layout.tres   # Audio bus mapping (BGM, SFX, Ambience)
 ├── icon.svg                  # Project icon asset

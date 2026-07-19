@@ -1,8 +1,8 @@
-# Scripts Documentation — Top Down Shooter (Godot 4.7)
+# Scripts Documentation — Pewtopia (Godot 4.7)
 
 ## Project Overview
 
-Godot 4.7 top-down shooter. Main scene: `scenes/main.tscn`, 1280x720 viewport, GL Compatibility renderer, Jolt Physics 3D. Singleton autoload: `input_actions.gd`.
+Godot 4.7 top-down shooter game Pewtopia. Main scene: `scenes/main.tscn`, 1280x720 viewport, GL Compatibility renderer, Jolt Physics 3D. Singleton autoload: `input_actions.gd`.
 
 ---
 
