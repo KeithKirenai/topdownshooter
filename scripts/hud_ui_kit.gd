@@ -7,6 +7,7 @@ extends RefCounted
 # Pre-rendered coin animation frames (populated at startup by HUD)
 static var coin_frames: Array[Texture2D] = []
 
+# Draws a hexagonal coin with perspective rotation via width_factor
 static func draw_coin_on_canvas(canvas: CanvasItem, center: Vector2, radius: float, width_factor: float) -> void:
 	var thick_offset := Vector2(2.8 * (radius / 14.5) * sign(width_factor), 0)
 	if abs(width_factor) < 0.08:
@@ -111,14 +112,14 @@ const WEAPON_DETAILS: Dictionary = {
 
 # Weapon accent colors used by both the shop cards and the weapon description bar
 const WEAPON_ACCENT_COLORS: Dictionary = {
-	"smg":          Color(0.25, 0.82, 1.00, 1.0),  # cyan
-	"shotgun":      Color(1.00, 0.42, 0.22, 1.0),  # coral
-	"minigun":      Color(1.00, 0.20, 0.20, 1.0),  # danger red
-	"sniper":       Color(0.20, 0.60, 1.00, 1.0),  # blue
-	"missile":      Color(0.65, 0.48, 1.00, 1.0),  # lavender
-	"ammo":         Color(1.00, 0.85, 0.20, 1.0),  # gold
-	"heal":         Color(0.22, 1.00, 0.55, 1.0),  # success green
-	"extend_heart": Color(1.00, 0.40, 0.75, 1.0),  # pink
+	"smg":          Color(0.25, 0.82, 1.00, 1.0),
+	"shotgun":      Color(1.00, 0.42, 0.22, 1.0),
+	"minigun":      Color(1.00, 0.20, 0.20, 1.0),
+	"sniper":       Color(0.20, 0.60, 1.00, 1.0),
+	"missile":      Color(0.65, 0.48, 1.00, 1.0),
+	"ammo":         Color(1.00, 0.85, 0.20, 1.0),
+	"heal":         Color(0.22, 1.00, 0.55, 1.0),
+	"extend_heart": Color(1.00, 0.40, 0.75, 1.0),
 }
 
 # ===================================================================
@@ -308,8 +309,6 @@ static func make_gradient_overlay(
 		parent: Control,
 		top_color: Color = Color(1, 1, 1, 0.08),
 		bottom_color: Color = Color(0, 0, 0, 0.15)) -> ColorRect:
-	# Using a simple two-color approach with a ColorRect + modulate trick:
-	# In Godot 4 CanvasItem, we stack two ColorRects at half opacity each.
 	var top := ColorRect.new()
 	top.color       = top_color
 	top.size        = Vector2(parent.size.x, parent.size.y * 0.5)
@@ -333,7 +332,6 @@ static func make_premium_card(
 		w: float, h: float,
 		accent: Color = C_PANEL_BORDER,
 		depth: int = 0) -> Control:
-	# Outer drop-shadow
 	var shadow := ColorRect.new()
 	shadow.color        = Color(0, 0, 0, 0.35 + depth * 0.08)
 	shadow.size         = Vector2(w + 4, h + 4)
@@ -341,21 +339,18 @@ static func make_premium_card(
 	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(shadow)
 
-	# Main card bg
 	var card := ColorRect.new()
 	card.color       = Color(0.08, 0.10, 0.20, 0.92)
 	card.size        = Vector2(w, h)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(card)
 
-	# Colored top border strip
 	var strip := ColorRect.new()
 	strip.color       = accent
 	strip.size        = Vector2(w, 3)
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(strip)
 
-	# Rim highlight
 	add_rim_highlight(parent, w, Color(1, 1, 1, 0.10))
 
 	return card
@@ -380,20 +375,14 @@ static func spawn_floating_motes(
 	p.initial_velocity_max = 8.0
 	p.scale_amount_min     = 0.5
 	p.scale_amount_max     = 2.0
-	# `hue_variation` is not available on CPUParticles2D in this engine version.
-	# Use `color` and a gentle `color_ramp` based on the provided `col`.
 	p.color                = col
-	# create a subtle two-stop ramp using a slightly darker variant
 	var g2 := Gradient.new()
 	var darker := Color(clamp(col.r * 0.9, 0, 1), clamp(col.g * 0.9, 0, 1), clamp(col.b * 0.9, 0, 1), col.a * 0.85)
 	g2.set_color(0, col)
 	g2.set_color(1, darker)
 	p.color_ramp = g2
 	p.position             = parent.size / 2.0
-	# Use rectangle emission extents to spread motes across the parent area.
-	# CPUParticles2D supports `emission_shape` and `emission_rect_extents`.
 	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
-	# set extents to half the parent size for even spread
 	p.emission_rect_extents = parent.size * 0.5
 	parent.add_child(p)
 	parent.move_child(p, 0)
@@ -407,7 +396,7 @@ static func make_gacha_pull_button(
 		parent: Control,
 		label: String = "PULL",
 		sub_label: String = "★ 100 coins",
-		cost: int = 100) -> Button:
+		_cost: int = 100) -> Button:
 	var btn := Button.new()
 	btn.custom_minimum_size = Vector2(240, 88)
 	btn.size = Vector2(240, 88)
@@ -416,7 +405,6 @@ static func make_gacha_pull_button(
 
 	style_button(btn, C_GOLD_BRIGHT, 24)
 
-	# Add a bright gloss highlight at the top
 	var gloss := ColorRect.new()
 	gloss.color = Color(1, 1, 1, 0.08)
 	gloss.size = Vector2(220, 32)
@@ -424,7 +412,6 @@ static func make_gacha_pull_button(
 	gloss.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	btn.add_child(gloss)
 
-	# Label
 	var lbl := Label.new()
 	lbl.text = label
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -437,7 +424,6 @@ static func make_gacha_pull_button(
 	lbl.size = Vector2(240, 48)
 	btn.add_child(lbl)
 
-	# Sub-label (cost)
 	var slbl := Label.new()
 	slbl.text = sub_label
 	slbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -454,8 +440,9 @@ static func make_gacha_pull_button(
 
 # ===================================================================
 # decorate_retro_panel — programmatically draw retro pixel-art panel details
+# Draws gradient background, golden rope borders, and ruby corner plaques
 # ===================================================================
-static func decorate_retro_panel(panel: Control, accent_color: Color = Color(1, 1, 0)) -> void:
+static func decorate_retro_panel(panel: Control, _accent_color: Color = Color(1, 1, 0)) -> void:
 	var decorator := Control.new()
 	decorator.name = "RetroPanelDecorator"
 	decorator.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -469,8 +456,8 @@ static func decorate_retro_panel(panel: Control, accent_color: Color = Color(1, 
 			return
 			
 		# 1. Royal Blue to Deep Indigo vertical gradient fill (classic SNES menu style)
-		var top_color := Color(0.04, 0.08, 0.28, 0.95)  # Royal Blue
-		var bot_color := Color(0.01, 0.02, 0.08, 0.98)  # Deep Indigo/Black
+		var top_color := Color(0.04, 0.08, 0.28, 0.95)
+		var bot_color := Color(0.01, 0.02, 0.08, 0.98)
 		var bg_points := PackedVector2Array([
 			Vector2(4, 4),
 			Vector2(W - 4, 4),
@@ -483,27 +470,22 @@ static func decorate_retro_panel(panel: Control, accent_color: Color = Color(1, 
 		])
 		decorator.draw_polygon(bg_points, bg_colors)
 		
-		# 2. Draw Repeating Carved Golden Rope Borders (NES/SNES Console style)
-		# Top border
+		# 2. Draw Repeating Carved Golden Rope Borders
 		var draw_h_border := func(y: float):
 			var x_start := 16.0
 			var x_end := W - 16.0
-			decorator.draw_rect(Rect2(x_start, y, x_end - x_start, 8), Color(0.08, 0.06, 0.03)) # dark border
-			decorator.draw_rect(Rect2(x_start, y + 1, x_end - x_start, 6), Color(0.82, 0.60, 0.12)) # gold fill
-			
-			# Carved rope details (alternating diagonal highlights and shadows)
+			decorator.draw_rect(Rect2(x_start, y, x_end - x_start, 8), Color(0.08, 0.06, 0.03))
+			decorator.draw_rect(Rect2(x_start, y + 1, x_end - x_start, 6), Color(0.82, 0.60, 0.12))
 			var step := 8.0
 			for x in range(int(x_start), int(x_end), int(step)):
 				decorator.draw_line(Vector2(x + 2, y + 1), Vector2(x + 5, y + 4), Color(1.0, 0.90, 0.45), 1.0)
 				decorator.draw_line(Vector2(x + 3, y + 5), Vector2(x + 6, y + 5), Color(0.48, 0.32, 0.05), 1.0)
 				
-		# Left border
 		var draw_v_border := func(x: float):
 			var y_start := 16.0
 			var y_end := H - 16.0
-			decorator.draw_rect(Rect2(x, y_start, 8, y_end - y_start), Color(0.08, 0.06, 0.03)) # dark border
-			decorator.draw_rect(Rect2(x + 1, y_start, 6, y_end - y_start), Color(0.82, 0.60, 0.12)) # gold fill
-			
+			decorator.draw_rect(Rect2(x, y_start, 8, y_end - y_start), Color(0.08, 0.06, 0.03))
+			decorator.draw_rect(Rect2(x + 1, y_start, 6, y_end - y_start), Color(0.82, 0.60, 0.12))
 			var step := 8.0
 			for y in range(int(y_start), int(y_end), int(step)):
 				decorator.draw_line(Vector2(x + 1, y + 2), Vector2(x + 4, y + 5), Color(1.0, 0.90, 0.45), 1.0)
@@ -516,21 +498,15 @@ static func decorate_retro_panel(panel: Control, accent_color: Color = Color(1, 
 		
 		# 3. Draw Ornate 16x16 Golden Corner Plaques with Ruby Gems
 		var draw_corner := func(x: float, y: float):
-			# Dark outline
 			decorator.draw_rect(Rect2(x, y, 16, 16), Color(0.08, 0.06, 0.03))
-			# Gold metal plate
 			decorator.draw_rect(Rect2(x + 1, y + 1, 14, 14), Color(0.85, 0.64, 0.15))
-			# Bevel Highlights (Top and Left)
 			decorator.draw_rect(Rect2(x + 1, y + 1, 13, 1), Color(1.0, 0.92, 0.55))
 			decorator.draw_rect(Rect2(x + 1, y + 2, 1, 12), Color(1.0, 0.92, 0.55))
-			# Bevel Shadows (Bottom and Right)
 			decorator.draw_rect(Rect2(x + 2, y + 14, 13, 1), Color(0.48, 0.32, 0.05))
 			decorator.draw_rect(Rect2(x + 14, y + 2, 1, 12), Color(0.48, 0.32, 0.05))
-			
-			# ruby gemstone in center (6x6)
-			decorator.draw_rect(Rect2(x + 5, y + 5, 6, 6), Color(0.22, 0.02, 0.02)) # gem border
-			decorator.draw_rect(Rect2(x + 6, y + 6, 4, 4), Color(0.92, 0.12, 0.20)) # ruby red
-			decorator.draw_rect(Rect2(x + 6, y + 6, 1, 1), Color(1.0, 0.75, 0.80)) # specular glint
+			decorator.draw_rect(Rect2(x + 5, y + 5, 6, 6), Color(0.22, 0.02, 0.02))
+			decorator.draw_rect(Rect2(x + 6, y + 6, 4, 4), Color(0.92, 0.12, 0.20))
+			decorator.draw_rect(Rect2(x + 6, y + 6, 1, 1), Color(1.0, 0.75, 0.80))
 			
 		draw_corner.call(0, 0)
 		draw_corner.call(W - 16, 0)
@@ -540,7 +516,7 @@ static func decorate_retro_panel(panel: Control, accent_color: Color = Color(1, 
 
 
 # ===================================================================
-# decorate_retro_item_card — 16-bit console style for smaller weapon cards / hotbar slots
+# decorate_retro_item_card — 16-bit console style for smaller cards / hotbar slots
 # ===================================================================
 static func decorate_retro_item_card(card: Control, is_active: bool = false) -> void:
 	var decorator := Control.new()
@@ -555,7 +531,6 @@ static func decorate_retro_item_card(card: Control, is_active: bool = false) -> 
 		if W <= 0 or H <= 0:
 			return
 			
-		# 1. Royal Blue to Deep Indigo vertical gradient fill (classic SNES menu style)
 		var top_color := Color(0.04, 0.10, 0.32, 0.94) if is_active else Color(0.02, 0.05, 0.18, 0.90)
 		var bot_color := Color(0.01, 0.03, 0.10, 0.96) if is_active else Color(0.005, 0.01, 0.04, 0.94)
 		var bg_points := PackedVector2Array([
@@ -570,33 +545,23 @@ static func decorate_retro_item_card(card: Control, is_active: bool = false) -> 
 		])
 		decorator.draw_polygon(bg_points, bg_colors)
 		
-		# 2. Draw 16-bit Gold Border
 		var border_color := Color(1.0, 0.85, 0.20) if is_active else Color(0.70, 0.52, 0.10)
 		var dark_border   := Color(0.08, 0.06, 0.03)
 		var light_highlight := Color(1.0, 0.95, 0.65) if is_active else Color(0.90, 0.80, 0.45)
 		
-		# Outer dark rim
 		decorator.draw_rect(Rect2(0, 0, W, H), dark_border, false, 1.0)
-		
-		# Gold border line (2 pixels wide, inset by 1 pixel)
 		decorator.draw_rect(Rect2(1, 1, W - 2, H - 2), border_color, false, 1.0)
 		decorator.draw_rect(Rect2(2, 2, W - 4, H - 4), border_color, false, 1.0)
 		
-		# Bevel highlights (Top and Left inner edges)
 		decorator.draw_line(Vector2(2, 2), Vector2(W - 3, 2), light_highlight, 1.0)
 		decorator.draw_line(Vector2(2, 2), Vector2(2, H - 3), light_highlight, 1.0)
 		
-		# Bevel shadows (Bottom and Right inner edges)
 		decorator.draw_line(Vector2(3, H - 3), Vector2(W - 3, H - 3), Color(0.38, 0.25, 0.02), 1.0)
 		decorator.draw_line(Vector2(W - 3, 3), Vector2(W - 3, H - 3), Color(0.38, 0.25, 0.02), 1.0)
 		
-		# 3. Draw 4x4 Corner Studs/Rivet Details
 		var draw_stud := func(x: float, y: float):
-			# 4x4 dark box
 			decorator.draw_rect(Rect2(x, y, 4, 4), dark_border)
-			# Gold center
 			decorator.draw_rect(Rect2(x + 1, y + 1, 2, 2), border_color)
-			# Shiny glint pixel
 			decorator.draw_rect(Rect2(x + 1, y + 1, 1, 1), Color.WHITE if is_active else light_highlight)
 			
 		draw_stud.call(1, 1)
@@ -604,3 +569,263 @@ static func decorate_retro_item_card(card: Control, is_active: bool = false) -> 
 		draw_stud.call(1, H - 5)
 		draw_stud.call(W - 5, H - 5)
 	)
+
+
+# ===================================================================
+# decorate_8bit_menu_panel — Draws the exact menu style from the image
+# Draws a dark background panel with accent-colored border and title capsule
+# ===================================================================
+static func decorate_8bit_menu_panel(panel: Control, title_text: String, accent_color: Color) -> void:
+	var dec_control := Control.new()
+	dec_control.name = "RetroMenuDecorator"
+	dec_control.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dec_control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(dec_control)
+	
+	if panel is Panel:
+		var empty_style := StyleBoxEmpty.new()
+		panel.add_theme_stylebox_override("panel", empty_style)
+	
+	var title_lbl := Label.new()
+	title_lbl.name = "CapsuleTitleLabel"
+	title_lbl.text = "  • " + title_text.to_upper() + " •  "
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title_lbl.add_theme_font_size_override("font_size", 14)
+	title_lbl.add_theme_color_override("font_color", Color.WHITE)
+	title_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+	title_lbl.add_theme_constant_override("outline_size", 4)
+	title_lbl.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	title_lbl.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	title_lbl.grow_vertical = Control.GROW_DIRECTION_BOTH
+	title_lbl.offset_top = -12
+	panel.add_child(title_lbl)
+
+	dec_control.draw.connect(func():
+		var W := dec_control.size.x
+		var H := dec_control.size.y
+		if W <= 0 or H <= 0:
+			return
+		
+		var bg_color := Color(0.02, 0.02, 0.04, 0.98)
+		dec_control.draw_rect(Rect2(4, 4, W - 8, H - 8), bg_color, true)
+		dec_control.draw_rect(Rect2(4, 4, W - 8, H - 8), accent_color, false, 2.0)
+		
+		var lbl_size := title_lbl.size
+		var cap_w := maxf(lbl_size.x + 16.0, 120.0)
+		var cap_h := 24.0
+		var cap_rect := Rect2(W/2.0 - cap_w/2.0, -12, cap_w, cap_h)
+		
+		dec_control.draw_rect(cap_rect, bg_color, true)
+		dec_control.draw_rect(cap_rect, accent_color, false, 2.0)
+	)
+
+
+# ===================================================================
+# RetroProgressBar — Custom node for 8-bit tick-style progress bars
+# ===================================================================
+class RetroProgressBar extends Control:
+	var value_percent: float = 1.0:
+		set(v):
+			value_percent = clampf(v, 0.0, 1.0)
+			queue_redraw()
+	var accent_color: Color = Color(0.22, 1.00, 0.55)
+	
+	func _init(h: float = 24.0) -> void:
+		custom_minimum_size = Vector2(160, h)
+		size = Vector2(160, h)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var W := size.x
+		var H := size.y
+		
+		var bg_color := Color(0.01, 0.01, 0.02, 0.95)
+		draw_rect(Rect2(0, 0, W, H), bg_color, true)
+		draw_rect(Rect2(0, 0, W, H), accent_color, false, 2.0)
+		
+		if value_percent > 0.0:
+			var fill_w := (W - 8.0) * value_percent
+			draw_rect(Rect2(4.0, 4.0, fill_w, H - 8.0), accent_color, true)
+
+
+# ===================================================================
+# make_retro_slider — Styles an HSlider to draw retro ticks and circle grabber
+# ===================================================================
+static func make_retro_slider(slider: HSlider, accent_color: Color) -> void:
+	slider.add_theme_stylebox_override("slider", StyleBoxEmpty.new())
+	slider.add_theme_stylebox_override("grabber_area", StyleBoxEmpty.new())
+	slider.add_theme_stylebox_override("grabber_area_highlight", StyleBoxEmpty.new())
+	slider.add_theme_icon_override("grabber", PlaceholderTexture2D.new())
+	slider.add_theme_icon_override("grabber_highlight", PlaceholderTexture2D.new())
+	
+	slider.draw.connect(func():
+		var W := slider.size.x
+		var H := slider.size.y
+		
+		var track_h := 16.0
+		var track_y := H / 2.0 - track_h / 2.0
+		var bg_color := Color(0.01, 0.01, 0.02, 0.95)
+		slider.draw_rect(Rect2(0, track_y, W, track_h), bg_color, true)
+		slider.draw_rect(Rect2(0, track_y, W, track_h), accent_color, false, 1.5)
+		
+		var r := track_h / 2.0
+		slider.draw_circle(Vector2(0, H/2.0), r, bg_color)
+		slider.draw_arc(Vector2(0, H/2.0), r, PI/2, 3*PI/2, 12, accent_color, 1.5)
+		slider.draw_circle(Vector2(W, H/2.0), r, bg_color)
+		slider.draw_arc(Vector2(W, H/2.0), r, -PI/2, PI/2, 12, accent_color, 1.5)
+		
+		var start_x := 4.0
+		var end_x := W - 4.0
+		var fill_w := (end_x - start_x) * slider.ratio
+		
+		var tick_spacing := 6.0
+		var tick_w := 2.5
+		var x := start_x
+		while x < start_x + fill_w:
+			slider.draw_rect(Rect2(x, track_y + 3.0, tick_w, track_h - 6.0), accent_color, true)
+			x += tick_spacing
+			
+		var grabber_x := start_x + fill_w
+		var grabber_radius := 10.0
+		slider.draw_circle(Vector2(grabber_x, H/2.0), grabber_radius, Color.BLACK)
+		slider.draw_circle(Vector2(grabber_x, H/2.0), grabber_radius - 1.5, accent_color)
+		slider.draw_circle(Vector2(grabber_x - 2.0, H/2.0 - 2.0), 2.0, Color.WHITE)
+	)
+
+
+# ===================================================================
+# make_retro_circular_button — Configures a button as a circular 8-bit icon
+# Draws shadow, main circle, border ring, inner ring, and custom vector icon
+# ===================================================================
+static func make_retro_circular_button(btn: Button, icon_type: String, accent_color: Color) -> void:
+	btn.custom_minimum_size = Vector2(50, 50)
+	btn.size = Vector2(50, 50)
+	btn.text = ""
+	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	
+	var empty := StyleBoxEmpty.new()
+	btn.add_theme_stylebox_override("normal", empty)
+	btn.add_theme_stylebox_override("hover", empty)
+	btn.add_theme_stylebox_override("pressed", empty)
+	btn.add_theme_stylebox_override("focus", empty)
+	
+	btn.draw.connect(func():
+		var W := btn.size.x
+		var H := btn.size.y
+		var center := Vector2(W / 2.0, H / 2.0)
+		var radius := W / 2.0 - 3.0
+		
+		var is_pressed := btn.button_pressed or btn.is_hovered() and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+		var is_hovered := btn.is_hovered()
+		
+		var shadow_offset := Vector2(0, 3) if not is_pressed else Vector2(0, 1)
+		btn.draw_circle(center + shadow_offset, radius, Color(0, 0, 0, 0.45))
+		
+		var bg_color := Color(0.04, 0.06, 0.12)
+		if is_pressed:
+			bg_color = Color(0.12, 0.16, 0.28)
+		elif is_hovered:
+			bg_color = Color(0.08, 0.11, 0.20)
+			
+		btn.draw_circle(center, radius, bg_color)
+		
+		var border_color := accent_color
+		if is_hovered:
+			border_color = accent_color.lerp(Color.WHITE, 0.3)
+		btn.draw_circle(center, radius, border_color, false, 2.0)
+		
+		btn.draw_circle(center, radius - 4.0, border_color, false, 1.0)
+		
+		var icon_color := border_color
+		match icon_type:
+			"play":
+				var pts := PackedVector2Array([
+					center + Vector2(-5, -7),
+					center + Vector2(-5, 7),
+					center + Vector2(8, 0)
+				])
+				btn.draw_polygon(pts, [icon_color, icon_color, icon_color])
+			"restart":
+				btn.draw_arc(center, 7.0, -PI/2, PI, 16, icon_color, 2.0)
+				var pts := PackedVector2Array([
+					center + Vector2(4, -8),
+					center + Vector2(10, -5),
+					center + Vector2(7, -2)
+				])
+				btn.draw_polygon(pts, [icon_color, icon_color, icon_color])
+			"home":
+				var roof_pts := PackedVector2Array([
+					center + Vector2(-9, 1),
+					center + Vector2(9, 1),
+					center + Vector2(0, -8)
+				])
+				btn.draw_polygon(roof_pts, [icon_color, icon_color, icon_color])
+				btn.draw_rect(Rect2(center.x - 6, center.y + 1, 12, 8), icon_color, false, 2.0)
+				btn.draw_rect(Rect2(center.x - 2, center.y + 4, 4, 5), icon_color, true)
+			"next":
+				var p1 := PackedVector2Array([
+					center + Vector2(-6, -6),
+					center + Vector2(-6, 6),
+					center + Vector2(0, 0)
+				])
+				var p2 := PackedVector2Array([
+					center + Vector2(0, -6),
+					center + Vector2(0, 6),
+					center + Vector2(6, 0)
+				])
+				btn.draw_polygon(p1, [icon_color, icon_color, icon_color])
+				btn.draw_polygon(p2, [icon_color, icon_color, icon_color])
+			"menu":
+				var size := 3.0
+				var spacing := 5.0
+				var start := center - Vector2(spacing, spacing) - Vector2(size/2.0, size/2.0)
+				for r in range(3):
+					for c in range(3):
+						btn.draw_rect(Rect2(start.x + c * spacing, start.y + r * spacing, size, size), icon_color, true)
+	)
+
+
+# ===================================================================
+# Helper to draw vector retro icons (musical note, treble clef, clock, heart)
+# ===================================================================
+static func decorate_with_retro_icon(control: Control, icon_type: String, color: Color) -> void:
+	var dec := Control.new()
+	dec.name = "RetroIconDecorator"
+	dec.custom_minimum_size = Vector2(24, 24)
+	dec.size = Vector2(24, 24)
+	dec.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	control.add_child(dec)
+	control.move_child(dec, 0)
+	
+	dec.draw.connect(func():
+		var center := dec.size / 2.0
+		match icon_type:
+			"heart":
+				var pts := PackedVector2Array([
+					center + Vector2(0, 8),
+					center + Vector2(-8, 0),
+					center + Vector2(-8, -4),
+					center + Vector2(-4, -8),
+					center + Vector2(0, -4),
+					center + Vector2(4, -8),
+					center + Vector2(8, -4),
+					center + Vector2(8, 0)
+				])
+				dec.draw_polygon(pts, [color, color, color, color, color, color, color, color])
+			"clock":
+				dec.draw_circle(center, 8.0, color, false, 2.0)
+				dec.draw_line(center, center + Vector2(0, -5), color, 2.0)
+				dec.draw_line(center, center + Vector2(3, 2), color, 2.0)
+				dec.draw_line(center + Vector2(-6, -7), center + Vector2(-9, -9), color, 2.0)
+				dec.draw_line(center + Vector2(6, -7), center + Vector2(9, -9), color, 2.0)
+			"note":
+				var note_center := center + Vector2(-3, 3)
+				dec.draw_circle(note_center, 3.5, color)
+				dec.draw_line(note_center + Vector2(3, 0), center + Vector2(0, -8), color, 2.0)
+				dec.draw_line(center + Vector2(0, -8), center + Vector2(6, -6), color, 2.0)
+			"clef":
+				dec.draw_line(center + Vector2(0, -9), center + Vector2(0, 9), color, 1.5)
+				dec.draw_circle(center + Vector2(-1, 7), 2.5, color)
+				dec.draw_arc(center + Vector2(0, 2), 4.0, -PI/2, PI/2, 12, color, 1.5)
+				dec.draw_arc(center + Vector2(0, -4), 3.0, PI/2, 3*PI/2, 12, color, 1.5)

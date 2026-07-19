@@ -33,6 +33,7 @@ func init(hud: CanvasLayer, ctrl: Control) -> void:
 
 # ===================================================================
 # build_combo_widget — must be called once from HUD._ready
+# Builds the combo glass card with bg, label, hype label, and progress bar
 # ===================================================================
 func build_combo_widget() -> void:
 	_combo_container = Control.new()
@@ -104,7 +105,7 @@ func build_combo_widget() -> void:
 
 
 # ===================================================================
-# show_combo
+# show_combo — animates the combo counter with tiered hype text
 # ===================================================================
 func show_combo(count: int, player_node) -> void:
 	if not _combo_container:
@@ -173,7 +174,7 @@ func hide_combo() -> void:
 
 
 # ===================================================================
-# update_combo_timer
+# update_combo_timer — updates the progress bar and color
 # ===================================================================
 func update_combo_timer(progress: float) -> void:
 	if not _combo_progress_bar:
@@ -235,7 +236,7 @@ func run_countdown(overlay: ColorRect, lbl: Label, heal_flash: ColorRect,
 
 
 # ===================================================================
-# _spawn_countdown_ring
+# _spawn_countdown_ring — expanding ring effect on each count tick
 # ===================================================================
 func _spawn_countdown_ring(col: Color) -> void:
 	var vp: Vector2 = _hud_node.get_viewport().get_visible_rect().size
@@ -259,7 +260,7 @@ func _spawn_countdown_ring(col: Color) -> void:
 
 
 # ===================================================================
-# spawn_round_complete_confetti
+# spawn_round_complete_confetti — celebratory particle burst
 # ===================================================================
 func spawn_round_complete_confetti() -> void:
 	var p := CPUParticles2D.new()
@@ -292,6 +293,7 @@ func spawn_round_complete_confetti() -> void:
 
 # ===================================================================
 # play_coin_fly — 10 coin arc animation into the score icon
+# Each coin lerps from center-screen to the score icon with a parabolic arc
 # ===================================================================
 func play_coin_fly(score_icon: TextureRect, prize: int,
 		prev_score: int, target_score: int,

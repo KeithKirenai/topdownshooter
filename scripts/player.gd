@@ -7,14 +7,7 @@ const ANIM_SPEED := 0.12
 const MAGNET_SPEED = 400.0
 const MAGNET_RANGE = 120.0
 
-const WEAPON_DATA := {
-	"pistol": { "fire_rate": 0.03, "spread": 0.0, "bullets": 1, "penetrate": false, "explosive": false, "ammo_max": -1, "damage": 4, "bullet_type": "pistol", "reload_time": 0.8, "recoil": 0.0, "clip_max": 8 },
-	"smg": { "fire_rate": 0.12, "spread": 0.015, "bullets": 1, "penetrate": false, "explosive": false, "ammo_max": 120, "damage": 2, "bullet_type": "smg", "reload_time": 1.2, "recoil": 20.0, "clip_max": 30 },
-	"shotgun": { "fire_rate": 0.8, "spread": 0.14, "bullets": 8, "penetrate": false, "explosive": false, "ammo_max": 30, "damage": 1, "bullet_type": "shotgun", "reload_time": 1.5, "recoil": 80.0, "clip_max": 6 },
-	"minigun": { "fire_rate": 0.05, "spread": 0.03, "bullets": 1, "penetrate": false, "explosive": false, "ammo_max": 200, "damage": 1, "bullet_type": "minigun", "reload_time": 2.2, "recoil": 15.0, "clip_max": 50 },
-	"sniper": { "fire_rate": 1.2, "spread": 0.0, "bullets": 1, "penetrate": true, "explosive": false, "ammo_max": 5, "damage": 30, "bullet_type": "sniper", "reload_time": 1.0, "recoil": 45.0, "clip_max": 1 },
-	"missile": { "fire_rate": 1.2, "spread": 0.0, "bullets": 1, "penetrate": false, "explosive": true, "ammo_max": 8, "damage": 5, "bullet_type": "missile", "reload_time": 1.8, "recoil": 60.0, "clip_max": 1 },
-}
+const WEAPON_DATA = WeaponDB.WEAPON_DATA
 
 @onready var sprite := $Sprite2D
 @onready var gun_pivot := $GunPivot
@@ -38,22 +31,8 @@ var frozen := false
 var muzzle_flash_time := 0.0
 var shake_intensity: float = 0.0
 var shake_decay: float = 16.0
-var _weapon_shakes := {
-	"pistol": 0.6,
-	"smg": 0.4,
-	"shotgun": 2.5,
-	"minigun": 0.5,
-	"sniper": 3.5,
-	"missile": 4.5,
-}
-var _weapon_scales := {
-	"pistol": Vector2(1.6, 1.6),
-	"smg": Vector2(2.0, 2.0),
-	"shotgun": Vector2(2.2, 2.2),
-	"minigun": Vector2(2.5, 2.5),
-	"sniper": Vector2(2.5, 2.2),
-	"missile": Vector2(2.6, 2.6),
-}
+const _weapon_shakes = WeaponDB.WEAPON_SHAKES
+const _weapon_scales = WeaponDB.WEAPON_SCALES
 
 var is_reloading := false
 var reload_timer := 0.0
@@ -112,44 +91,43 @@ var passive_damage_boost: float = 1.0       # e.g., 1.35 for +35% damage
 var _cheat_buffer := ""
 
 # Weapon Mastery/Milestone systems
-var weapon_unlocks := {
-	"pistol": true,
-	"shotgun": false,
-	"smg": false,
-	"minigun": false,
-	"sniper": false,
-	"missile": false
-}
+var weapon_unlocks: Dictionary:
+	get: return ProgressionManager.weapon_unlocks
+	set(val): ProgressionManager.weapon_unlocks = val
 
 # Passive Upgrade unlocks (purchased status)
-var passive_unlocks := {
-	"shield": false,
-	"speed_loader": false,
-	"golden_touch": false,
-	"magnet_ring": false,
-	"toughness": false,
-	"damage_boost": false
-}
+var passive_unlocks: Dictionary:
+	get: return ProgressionManager.passive_unlocks
+	set(val): ProgressionManager.passive_unlocks = val
 
 # New stats for milestone tracking
-var total_bullets_fired := 0
-var total_coins_collected := 0
-var total_items_collected := 0
-var total_kills := 0
-var peak_combo := 0
-var run_survival_time := 0.0
+var total_bullets_fired: int:
+	get: return ProgressionManager.total_bullets_fired
+	set(val): ProgressionManager.total_bullets_fired = val
+var total_coins_collected: int:
+	get: return ProgressionManager.total_coins_collected
+	set(val): ProgressionManager.total_coins_collected = val
+var total_items_collected: int:
+	get: return ProgressionManager.total_items_collected
+	set(val): ProgressionManager.total_items_collected = val
+var total_kills: int:
+	get: return ProgressionManager.total_kills
+	set(val): ProgressionManager.total_kills = val
+var peak_combo: int:
+	get: return ProgressionManager.peak_combo
+	set(val): ProgressionManager.peak_combo = val
+var run_survival_time: float:
+	get: return ProgressionManager.run_survival_time
+	set(val): ProgressionManager.run_survival_time = val
 
 # Keep track of announced milestone completions to prevent spamming
-var announced_milestones := []
+var announced_milestones: Array:
+	get: return ProgressionManager.announced_milestones
+	set(val): ProgressionManager.announced_milestones = val
 
-var weapon_kills := {
-	"pistol": 0,
-	"shotgun": 0,
-	"smg": 0,
-	"minigun": 0,
-	"sniper": 0,
-	"missile": 0
-}
+var weapon_kills: Dictionary:
+	get: return ProgressionManager.weapon_kills
+	set(val): ProgressionManager.weapon_kills = val
 
 var time_without_damage := 0.0
 
@@ -200,6 +178,10 @@ func _ready() -> void:
 	laser.hide()
 	_apply_weapon("pistol")
 	_broadcast_weapon()
+	
+	var renderer = load("res://scripts/player_canvas_renderer.gd").new()
+	renderer.player = self
+	add_child(renderer)
 	
 	var main_scene = get_tree().current_scene
 
@@ -571,9 +553,6 @@ func _process(delta: float) -> void:
 	if spread_decay_timer <= 0.0:
 		spread_accum = max(0.0, spread_accum - delta * 0.5)
 
-	if recoil_velocity.length() > 0.0:
-		recoil_velocity = recoil_velocity.move_toward(Vector2.ZERO, 600.0 * delta)
-
 	muzzle_flash_time = max(0.0, muzzle_flash_time - delta)
 	queue_redraw()
 
@@ -584,6 +563,9 @@ func _physics_process(_delta: float) -> void:
 	
 	# Update time without taking damage
 	time_without_damage += _delta
+	
+	if recoil_velocity.length() > 0.0:
+		recoil_velocity = recoil_velocity.move_toward(Vector2.ZERO, 600.0 * _delta)
 		
 	var input_dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	velocity = input_dir * SPEED + recoil_velocity
@@ -1194,62 +1176,7 @@ func _spawn_smoke_particles() -> void:
 
 
 func _play_procedural_sound(type: String) -> void:
-	var asp := AudioStreamPlayer.new()
-	asp.bus = "Priority" if type in ["perfect_ping", "failed_jam"] else "Standard"
-	add_child(asp)
-	asp.finished.connect(asp.queue_free)
-	
-	match type:
-		"mag_out":
-			asp.stream = _weapon_switch_sound
-			asp.pitch_scale = 1.6
-			asp.volume_db = 3.5
-		"mag_in":
-			asp.stream = load("res://assets/sounds/walk_step.wav")
-			asp.pitch_scale = 0.65
-			asp.volume_db = 6.5
-		"bolt_rack":
-			asp.stream = load("res://assets/sounds/weapon_switch.wav")
-			asp.pitch_scale = 1.3
-			asp.volume_db = 5.5
-		"ui_tick":
-			asp.stream = load("res://assets/sounds/lock_on.wav")
-			asp.pitch_scale = 2.5
-			asp.volume_db = -1.5
-		"blocked":
-			asp.stream = load("res://assets/sounds/lock_on.wav")
-			asp.pitch_scale = 0.45
-			asp.volume_db = 5.0
-		"voice":
-			asp.stream = load("res://assets/sounds/walk_step.wav")
-			asp.pitch_scale = 0.75
-			asp.volume_db = 6.0
-		"low_ammo_warning":
-			asp.stream = load("res://assets/sounds/lock_on.wav")
-			asp.pitch_scale = 2.2
-			asp.volume_db = -1.0
-		"empty_warning":
-			asp.stream = load("res://assets/sounds/lock_on.wav")
-			asp.pitch_scale = 1.6
-			asp.volume_db = 4.5
-		"perfect_ping":
-			asp.stream = load("res://assets/sounds/round_win.wav")
-			asp.pitch_scale = 2.0
-			asp.volume_db = 1.0
-		"perfect_clack":
-			asp.stream = load("res://assets/sounds/weapon_switch.wav")
-			asp.pitch_scale = 0.82
-			asp.volume_db = 7.0
-		"good_click":
-			asp.stream = load("res://assets/sounds/weapon_switch.wav")
-			asp.pitch_scale = 1.5
-			asp.volume_db = 2.0
-		"failed_jam":
-			asp.stream = load("res://assets/sounds/hurt.wav")
-			asp.pitch_scale = 0.5
-			asp.volume_db = 5.0
-			
-	asp.play()
+	ProceduralAudioHelper.play_procedural_sound(self, type)
 
 
 func _spawn_physical_magazine() -> void:
@@ -1325,241 +1252,6 @@ func _draw() -> void:
 	else:
 		if Input.get_mouse_mode() != Input.MOUSE_MODE_HIDDEN:
 			Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
-
-	if not _menu_open():
-		# Draw passive shield bubble if equipped & active
-		if passive_shield > 0:
-			var pulse := 0.85 + sin(Time.get_ticks_msec() * 0.005) * 0.15
-			var shield_color := Color(0.0, 0.75, 1.0, 0.12 * pulse)
-			var border_color := Color(0.3, 0.9, 1.0, 0.75)
-			
-			draw_circle(Vector2.ZERO, 30.0, shield_color)
-			draw_arc(Vector2.ZERO, 30.0, 0.0, TAU, 32, border_color, 1.5, true)
-			
-			var rot = Time.get_ticks_msec() * 0.001
-			draw_arc(Vector2.ZERO, 32.0, rot, rot + PI * 0.6, 16, Color(0.0, 0.75, 1.0, 0.35), 1.0)
-			draw_arc(Vector2.ZERO, 32.0, rot + PI, rot + PI * 1.6, 16, Color(0.0, 0.75, 1.0, 0.35), 1.0)
-
-		var crosshair_pos := visual_crosshair_pos
-		
-		var ch_color := Color(0.1, 0.9, 1.0, 0.8)
-		var ch_radius := 6.0
-		
-		# Get current clip info to draw warnings
-		var clip := 0
-		var reserve := 0
-		if current_weapon_index < inventory.size():
-			var entry = inventory[current_weapon_index]
-			clip = entry[2]
-			reserve = entry[1]
-		
-		# Calculate velocity-based squash and stretch transform
-		var speed := crosshair_velocity.length()
-		var stretch_factor := 1.0 + clampf(speed * 0.0006, 0.0, 0.40)
-		var velocity_dir := crosshair_velocity.normalized() if speed > 0.1 else Vector2.RIGHT
-		
-		# Draw the shapes in a transformed canvas coordinate system centered at crosshair_pos
-		draw_set_transform(crosshair_pos, velocity_dir.angle(), Vector2(stretch_factor, 2.0 - stretch_factor))
-		
-		# Color-code standard clean crosshair based on state
-		if is_reloading:
-			ch_color = Color(1.0, 0.72, 0.15, 0.9) # Orange/yellow during reload
-		elif clip == 0:
-			ch_color = Color(1.0, 0.1, 0.1, 0.9) # Red when empty/warning
-		else:
-			ch_color = Color(0.1, 0.9, 1.0, 0.8) # Neon cyan when ready
-			
-		# Draw standard clean crosshair (circle + ticks)
-		draw_circle(Vector2.ZERO, 2.0, ch_color)
-		var tick_len := 4.0
-		var tick_offset := 5.0
-		draw_line(Vector2(-tick_offset, 0), Vector2(-tick_offset - tick_len, 0), ch_color, 1.5)
-		draw_line(Vector2(tick_offset, 0), Vector2(tick_offset + tick_len, 0), ch_color, 1.5)
-		draw_line(Vector2(0, -tick_offset), Vector2(0, -tick_offset - tick_len), ch_color, 1.5)
-		draw_line(Vector2(0, tick_offset), Vector2(0, tick_offset + tick_len), ch_color, 1.5)
-		
-		# Reset the transform back to identity
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-
-	var aim_dir := get_aim_direction()
-	var muzzle_pos := get_muzzle_local_position()
-
-	if is_instance_valid(locked_enemy) and not locked_enemy.get("dying") and not _menu_open():
-		var to_enemy_local: Vector2 = locked_enemy.global_position - global_position
-		
-		var current_dist := 0.0
-		var line_vec: Vector2 = to_enemy_local - muzzle_pos
-		var line_vec_len: float = line_vec.length()
-		var line_vec_dir: Vector2 = line_vec.normalized()
-		var dot_length := 4.0
-		var gap_length := 6.0
-		var color_line := Color(1.0, 0.4, 0.0, 0.8)
-		
-		while current_dist < line_vec_len:
-			var p1 = muzzle_pos + line_vec_dir * current_dist
-			var p2 = muzzle_pos + line_vec_dir * min(current_dist + dot_length, line_vec_len)
-			draw_line(p1, p2, color_line, 2.0)
-			current_dist += dot_length + gap_length
-			
-		var time_scale = Time.get_ticks_msec() * 0.005
-		var wiggle := sin(time_scale) * 2.0
-		var radius := 24.0 + wiggle
-		
-		var enemy_pos: Vector2 = to_enemy_local
-		var bracket_len := 8.0
-		var bracket_color := Color(1.0, 0.2, 0.1, 0.9)
-		
-		draw_line(enemy_pos + Vector2(-radius, -radius), enemy_pos + Vector2(-radius + bracket_len, -radius), bracket_color, 2.0)
-		draw_line(enemy_pos + Vector2(-radius, -radius), enemy_pos + Vector2(-radius, -radius + bracket_len), bracket_color, 2.0)
-		
-		draw_line(enemy_pos + Vector2(radius, -radius), enemy_pos + Vector2(radius - bracket_len, -radius), bracket_color, 2.0)
-		draw_line(enemy_pos + Vector2(radius, -radius), enemy_pos + Vector2(radius, -radius + bracket_len), bracket_color, 2.0)
-		
-		draw_line(enemy_pos + Vector2(-radius, radius), enemy_pos + Vector2(-radius + bracket_len, radius), bracket_color, 2.0)
-		draw_line(enemy_pos + Vector2(-radius, radius), enemy_pos + Vector2(-radius, radius - bracket_len), bracket_color, 2.0)
-		
-		draw_line(enemy_pos + Vector2(radius, radius), enemy_pos + Vector2(radius - bracket_len, radius), bracket_color, 2.0)
-		draw_line(enemy_pos + Vector2(radius, radius), enemy_pos + Vector2(radius, radius - bracket_len), bracket_color, 2.0)
-		
-		draw_arc(enemy_pos, radius - 4.0, 0.0, TAU, 32, bracket_color, 1.5, true)
-		draw_circle(enemy_pos, 2.0, bracket_color)
-
-	if aim_dir.length() > 0.01 and not _menu_open():
-		var line_length := 300.0
-		var dot_length := 4.0
-		var gap_length := 6.0
-		var current_dist := 0.0
-		var color := Color(1.0, 1.0, 1.0, 0.4)
-		
-		while current_dist < line_length:
-			var p1 = muzzle_pos + aim_dir * current_dist
-			var p2 = muzzle_pos + aim_dir * min(current_dist + dot_length, line_length)
-			draw_line(p1, p2, color, 1.5)
-			current_dist += dot_length + gap_length
-
-	if muzzle_flash_time > 0.0 and not _menu_open():
-		var flash_size := 14.0
-		match weapon:
-			"pistol": flash_size = 18.0
-			"smg": flash_size = 20.0
-			"shotgun": flash_size = 38.0
-			"minigun": flash_size = 22.0
-			"sniper": flash_size = 34.0
-			"missile": flash_size = 44.0
-			
-		var outer_points := PackedVector2Array()
-		var num_spikes := 10
-		for i in range(num_spikes * 2):
-			var angle := float(i) * PI / float(num_spikes)
-			var r := (flash_size * 1.3) if i % 2 == 0 else (flash_size * 0.3)
-			r *= randf_range(0.8, 1.2)
-			outer_points.append(muzzle_pos + Vector2(cos(angle), sin(angle)) * r)
-		draw_colored_polygon(outer_points, Color(1.0, 0.3, 0.0, 0.4))
-
-		var star_points := PackedVector2Array()
-		for i in range(num_spikes * 2):
-			var angle := float(i) * PI / float(num_spikes)
-			var r := flash_size if i % 2 == 0 else (flash_size * 0.45)
-			r *= randf_range(0.9, 1.1)
-			star_points.append(muzzle_pos + Vector2(cos(angle), sin(angle)) * r)
-		draw_colored_polygon(star_points, Color(1.0, 0.6, 0.0, 0.95))
-		
-		var core_points := PackedVector2Array()
-		for i in range(num_spikes * 2):
-			var angle := float(i) * PI / float(num_spikes)
-			var r := (flash_size * 0.55) if i % 2 == 0 else (flash_size * 0.25)
-			core_points.append(muzzle_pos + Vector2(cos(angle), sin(angle)) * r)
-		draw_colored_polygon(core_points, Color(1.0, 0.98, 0.7, 0.98))
-		
-		for s in range(4):
-			var spark_angle := randf_range(0, TAU)
-			var spark_dist := randf_range(flash_size * 0.8, flash_size * 1.5)
-			var spark_pos := muzzle_pos + Vector2(cos(spark_angle), sin(spark_angle)) * spark_dist
-			var spark_r := randf_range(2.0, 4.0)
-			draw_circle(spark_pos, spark_r, Color(1.0, 0.8, 0.1, 0.9))
-
-	# Dynamic, High-End Ammo UI centered below the player
-	if current_weapon_index < inventory.size() and not _menu_open():
-		var entry = inventory[current_weapon_index]
-		var clip_max = WEAPON_DATA.get(weapon, WEAPON_DATA["pistol"]).get("clip_max", 1)
-		
-		# 3. Supercell Style Segmented Ammo Display centered under player
-		if entry.size() > 2:
-			var clip_shown = roundi(visual_clip_count)
-			var ratio = clampf(float(clip_shown) / float(clip_max), 0.0, 1.0)
-			
-			var num_segs = mini(clip_max, 8)
-			var bar_w := 36.0
-			var bar_h := 5.0
-			var bar_x := -bar_w / 2.0
-			var bar_y := 32.0
-			var spacing := 2.0
-			
-			var seg_w = (bar_w - (spacing * (num_segs - 1))) / num_segs
-			
-			draw_rect(Rect2(bar_x - 2, bar_y - 2, bar_w + 4, bar_h + 4), Color(0.02, 0.04, 0.08, 0.65), true)
-			
-			var filled_segs := 0
-			if is_reloading and reload_duration > 0.0:
-				var progress := clampf((reload_duration - reload_timer) / reload_duration, 0.0, 1.0)
-				filled_segs = roundi(progress * num_segs)
-			else:
-				if clip_max <= 8:
-					filled_segs = clip_shown
-				else:
-					filled_segs = roundi(ratio * num_segs)
-			
-			var seg_color = Color(0.2, 0.85, 1.0, 0.9)
-			if is_reloading:
-				seg_color = Color(1.0, 0.72, 0.15, 0.9)
-			elif clip_shown == 0:
-				seg_color = Color(1.0, 0.25, 0.25, 0.95)
-			elif ratio <= 0.33:
-				seg_color = Color(1.0, 0.72, 0.22, 0.9)
-				
-			for i in range(num_segs):
-				var seg_x = bar_x + i * (seg_w + spacing)
-				var is_filled = i < filled_segs
-				var c = seg_color if is_filled else Color(0.12, 0.15, 0.22, 0.6)
-				draw_rect(Rect2(seg_x, bar_y, seg_w, bar_h), c, true)
-				
-				if is_filled:
-					draw_rect(Rect2(seg_x, bar_y, seg_w, 1.5), Color(1.0, 1.0, 1.0, 0.45), true)
-
-		# 4. Gears of War Active Reload Timing Bar centered below segmented ammo
-		if is_reloading and reload_duration > 0.0:
-			var bar_w := 60.0
-			var bar_h := 7.0
-			var bar_x := -bar_w / 2.0
-			var bar_y := 40.0
-			
-			# Draw outer border for visibility
-			draw_rect(Rect2(bar_x - 2, bar_y - 2, bar_w + 4, bar_h + 4), Color(0.0, 0.0, 0.0, 0.85), true)
-			
-			# Draw background track
-			var bg_color = Color(0.5, 0.1, 0.1, 0.8) if is_jammed else Color(0.08, 0.08, 0.12, 0.8)
-			draw_rect(Rect2(bar_x, bar_y, bar_w, bar_h), bg_color, true)
-			
-			if not is_jammed:
-				# Good zone: 0.32 to 0.70 progress
-				var good_min := 0.32
-				var good_max := 0.70
-				var good_x = bar_x + good_min * bar_w
-				var good_w = (good_max - good_min) * bar_w
-				draw_rect(Rect2(good_x, bar_y, good_w, bar_h), Color(0.15, 0.65, 0.3, 0.6), true)
-				
-				# Perfect zone: 0.45 to 0.58 progress
-				var perf_min := 0.45
-				var perf_max := 0.58
-				var perf_x = bar_x + perf_min * bar_w
-				var perf_w = (perf_max - perf_min) * bar_w
-				draw_rect(Rect2(perf_x, bar_y, perf_w, bar_h), Color(1.0, 0.85, 0.2, perfect_flash_opacity), true)
-				draw_rect(Rect2(perf_x, bar_y, perf_w, bar_h), Color.WHITE, false, 1.0)
-				
-			# Moving indicator marker — thick white line
-			var progress := clampf((reload_duration - reload_timer) / reload_duration, 0.0, 1.0)
-			var ind_x = bar_x + progress * bar_w
-			draw_line(Vector2(ind_x, bar_y - 3.0), Vector2(ind_x, bar_y + bar_h + 3.0), Color.WHITE, 2.5)
 
 
 

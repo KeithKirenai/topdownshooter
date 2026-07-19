@@ -38,7 +38,7 @@ var _time:          float = 0.0
 var _score_glow_time: float = 0.0
 var _reload_ui_total_duration: float = 0.0
 
-# Autohide slide vars
+# Autohide slide vars — HUD containers slide off-screen when idle
 var _hud_container_offset:    float = 0.0
 var _hearts_container_offset: float = 0.0
 var _hud_hide_timer:          float = 0.0
@@ -51,8 +51,19 @@ var _title_particles: CPUParticles2D = null
 
 # Pause
 var _pause_panel: ColorRect
-var _pause_label: Label
 var _touch_layer: Control = null
+
+# Level Complete Components
+var _rc_card: Panel
+var _rc_lives_bar: HudUiKit.RetroProgressBar
+var _rc_time_bar: HudUiKit.RetroProgressBar
+var _rc_score_label: Label
+
+# Level Failed Components
+var _fail_card: Panel
+var _fail_lives_bar: HudUiKit.RetroProgressBar
+var _fail_time_bar: HudUiKit.RetroProgressBar
+var _fail_score_label: Label
 
 # Sounds
 var _menu_nav_sound:    AudioStream
@@ -82,7 +93,7 @@ var _weapon_textures := {
 
 
 # ===================================================================
-# _ready
+# _ready — builds the entire HUD layout and instantiates sub-modules
 # ===================================================================
 func _ready() -> void:
 	layer        = 2
@@ -112,7 +123,7 @@ func _ready() -> void:
 	_combat.coin_anim_finished.connect(_on_coin_anim_finished)
 	_combat.build_combo_widget()
 
-	# ── Layout: Restart Prompt ────────────────────────────────────────
+	# ── Layout: Restart Prompt ──────────────────────────────────────
 	var restart_prompt := $Control/RestartPrompt as RichTextLabel
 	if restart_prompt:
 		restart_prompt.anchor_left   = 0.5;  restart_prompt.anchor_right  = 0.5
@@ -123,7 +134,7 @@ func _ready() -> void:
 		restart_prompt.add_theme_color_override("default_color",      C_TEXT_PRI)
 		restart_prompt.add_theme_font_size_override("normal_font_size", 28)
 
-	# ── Layout: Final Score ───────────────────────────────────────────
+	# ── Layout: Final Score ─────────────────────────────────────────
 	var fsl := $Control/FinalScoreLabel as Label
 	if fsl:
 		fsl.anchor_left   = 0.5;  fsl.anchor_right  = 0.5
@@ -141,20 +152,20 @@ func _ready() -> void:
 		fsl.add_theme_constant_override("shadow_offset_x",   3)
 		fsl.add_theme_constant_override("shadow_offset_y",   3)
 
-	# ── Layout: Shop Panel ────────────────────────────────────────────
+	# ── Layout: Shop Panel ──────────────────────────────────────────
 	_setup_shop_panel_layout()
 
-	# ── Layout: Title Panel ───────────────────────────────────────────
+	# ── Layout: Title Panel ─────────────────────────────────────────
 	_setup_title_panel_layout()
 
-	# ── Layout: HUD Labels ────────────────────────────────────────────
+	# ── Layout: HUD Labels ──────────────────────────────────────────
 	_setup_hud_labels()
 	_ensure_reload_ui()
 
-	# ── Layout: Pause Glass Card ──────────────────────────────────────
+	# ── Layout: Pause Glass Card ────────────────────────────────────
 	_build_pause_panel()
 
-	# ── Initial offsets (everything hidden off-screen) ────────────────
+	# ── Initial offsets (everything hidden off-screen) ──────────────
 	_hud_container_offset    = -130.0
 	_hearts_container_offset =  130.0
 	_hud_target_opacity      = 0.0
@@ -168,23 +179,240 @@ func _ready() -> void:
 		_touch_layer.init(self)
 		$Control.add_child(_touch_layer)
 
-	# Style RoundCompletePanel as a pixel-art panel
+	# Setup Level Complete (Round Complete) Card
 	var rcp = $Control/RoundCompletePanel as ColorRect
 	if rcp:
-		rcp.color = Color.TRANSPARENT
-		var rcp_bg := Panel.new()
-		rcp_bg.name = "RoundCompletePixelBg"
-		rcp_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-		rcp_bg.add_theme_stylebox_override("panel", HudUiKit.make_pixel_panel(Color(0.02, 0.02, 0.04, 0.96), Color(0.0, 1.0, 0.3), 5))
-		rcp.add_child(rcp_bg)
-		rcp.move_child(rcp_bg, 0)
-		HudUiKit.decorate_retro_panel(rcp_bg, Color(0.0, 1.0, 0.3))
+		rcp.color = Color(0.0, 0.0, 0.0, 0.45)
+		
+		_rc_card = Panel.new()
+		_rc_card.name = "RoundCompleteCard"
+		_rc_card.set_anchors_preset(Control.PRESET_CENTER)
+		_rc_card.custom_minimum_size = Vector2(380, 280)
+		_rc_card.size = Vector2(380, 280)
+		_rc_card.pivot_offset = Vector2(190, 140)
+		rcp.add_child(_rc_card)
+		
+		var green_accent := Color(0.22, 1.00, 0.55)
+		HudUiKit.decorate_8bit_menu_panel(_rc_card, "LEVEL COMPLETE", green_accent)
+		
+		var rc_vbox := VBoxContainer.new()
+		rc_vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+		rc_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		rc_vbox.add_theme_constant_override("separation", 14)
+		rc_vbox.offset_left = 30
+		rc_vbox.offset_right = -30
+		rc_vbox.offset_top = 35
+		rc_vbox.offset_bottom = -15
+		_rc_card.add_child(rc_vbox)
+		
+		# Lives row
+		var lives_row := HBoxContainer.new()
+		lives_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		lives_row.add_theme_constant_override("separation", 8)
+		rc_vbox.add_child(lives_row)
+		
+		var l_icon := Control.new()
+		l_icon.custom_minimum_size = Vector2(24, 24)
+		lives_row.add_child(l_icon)
+		HudUiKit.decorate_with_retro_icon(l_icon, "heart", green_accent)
+		
+		var l_lbl := Label.new()
+		l_lbl.text = "LIVES: "
+		l_lbl.add_theme_font_size_override("font_size", 13)
+		l_lbl.add_theme_color_override("font_color", Color.WHITE)
+		l_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+		l_lbl.add_theme_constant_override("outline_size", 3)
+		lives_row.add_child(l_lbl)
+		
+		_rc_lives_bar = HudUiKit.RetroProgressBar.new(20.0)
+		_rc_lives_bar.accent_color = green_accent
+		lives_row.add_child(_rc_lives_bar)
+		
+		# Time row
+		var time_row := HBoxContainer.new()
+		time_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		time_row.add_theme_constant_override("separation", 8)
+		rc_vbox.add_child(time_row)
+		
+		var t_icon := Control.new()
+		t_icon.custom_minimum_size = Vector2(24, 24)
+		time_row.add_child(t_icon)
+		HudUiKit.decorate_with_retro_icon(t_icon, "clock", green_accent)
+		
+		var t_lbl := Label.new()
+		t_lbl.text = "TIME:  "
+		t_lbl.add_theme_font_size_override("font_size", 13)
+		t_lbl.add_theme_color_override("font_color", Color.WHITE)
+		t_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+		t_lbl.add_theme_constant_override("outline_size", 3)
+		time_row.add_child(t_lbl)
+		
+		_rc_time_bar = HudUiKit.RetroProgressBar.new(20.0)
+		_rc_time_bar.accent_color = green_accent
+		time_row.add_child(_rc_time_bar)
+		
+		# Score Label
+		_rc_score_label = Label.new()
+		_rc_score_label.text = "SCORE: 0"
+		_rc_score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_rc_score_label.add_theme_font_size_override("font_size", 14)
+		_rc_score_label.add_theme_color_override("font_color", Color.WHITE)
+		_rc_score_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		_rc_score_label.add_theme_constant_override("outline_size", 3)
+		rc_vbox.add_child(_rc_score_label)
+		
+		# Buttons row
+		var btn_row := HBoxContainer.new()
+		btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		btn_row.add_theme_constant_override("separation", 20)
+		rc_vbox.add_child(btn_row)
+		
+		# Next Button
+		var btn_next := Button.new()
+		btn_row.add_child(btn_next)
+		HudUiKit.make_retro_circular_button(btn_next, "next", green_accent)
+		btn_next.pressed.connect(func():
+			var main = get_tree().current_scene
+			if main and main.has_method("start_round"):
+				rcp.hide()
+				main.call("start_round")
+		)
+		
+		# Shop Button
+		var btn_shop := Button.new()
+		btn_row.add_child(btn_shop)
+		HudUiKit.make_retro_circular_button(btn_shop, "menu", green_accent)
+		btn_shop.pressed.connect(func():
+			var main = get_tree().current_scene
+			if main and main.has_method("open_shop"):
+				main.call("open_shop")
+		)
+		
+		# Home Button
+		var btn_home := Button.new()
+		btn_row.add_child(btn_home)
+		HudUiKit.make_retro_circular_button(btn_home, "home", green_accent)
+		btn_home.pressed.connect(func():
+			get_tree().quit()
+		)
+
+	# Setup Level Failed (Game Over) Card
+	var go_bg = $Control/GameOverBg as ColorRect
+	if go_bg:
+		_fail_card = Panel.new()
+		_fail_card.name = "GameOverCard"
+		_fail_card.set_anchors_preset(Control.PRESET_CENTER)
+		_fail_card.custom_minimum_size = Vector2(380, 280)
+		_fail_card.size = Vector2(380, 280)
+		_fail_card.pivot_offset = Vector2(190, 140)
+		go_bg.add_child(_fail_card)
+		
+		var red_accent := Color(1.00, 0.20, 0.20)
+		HudUiKit.decorate_8bit_menu_panel(_fail_card, "LEVEL FAILED", red_accent)
+		
+		var fail_vbox := VBoxContainer.new()
+		fail_vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+		fail_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		fail_vbox.add_theme_constant_override("separation", 14)
+		fail_vbox.offset_left = 30
+		fail_vbox.offset_right = -30
+		fail_vbox.offset_top = 35
+		fail_vbox.offset_bottom = -15
+		_fail_card.add_child(fail_vbox)
+		
+		# Lives row
+		var lives_row := HBoxContainer.new()
+		lives_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		lives_row.add_theme_constant_override("separation", 8)
+		fail_vbox.add_child(lives_row)
+		
+		var l_icon := Control.new()
+		l_icon.custom_minimum_size = Vector2(24, 24)
+		lives_row.add_child(l_icon)
+		HudUiKit.decorate_with_retro_icon(l_icon, "heart", red_accent)
+		
+		var l_lbl := Label.new()
+		l_lbl.text = "LIVES: "
+		l_lbl.add_theme_font_size_override("font_size", 13)
+		l_lbl.add_theme_color_override("font_color", Color.WHITE)
+		l_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+		lives_row.add_child(l_lbl)
+		
+		_fail_lives_bar = HudUiKit.RetroProgressBar.new(20.0)
+		_fail_lives_bar.accent_color = red_accent
+		_fail_lives_bar.value_percent = 0.0 # dead
+		lives_row.add_child(_fail_lives_bar)
+		
+		# Time row
+		var time_row := HBoxContainer.new()
+		time_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		time_row.add_theme_constant_override("separation", 8)
+		fail_vbox.add_child(time_row)
+		
+		var t_icon := Control.new()
+		t_icon.custom_minimum_size = Vector2(24, 24)
+		time_row.add_child(t_icon)
+		HudUiKit.decorate_with_retro_icon(t_icon, "clock", red_accent)
+		
+		var t_lbl := Label.new()
+		t_lbl.text = "TIME:  "
+		t_lbl.add_theme_font_size_override("font_size", 13)
+		t_lbl.add_theme_color_override("font_color", Color.WHITE)
+		t_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+		time_row.add_child(t_lbl)
+		
+		_fail_time_bar = HudUiKit.RetroProgressBar.new(20.0)
+		_fail_time_bar.accent_color = red_accent
+		time_row.add_child(_fail_time_bar)
+		
+		# Score Label
+		_fail_score_label = Label.new()
+		_fail_score_label.text = "SCORE: 0"
+		_fail_score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_fail_score_label.add_theme_font_size_override("font_size", 14)
+		_fail_score_label.add_theme_color_override("font_color", Color.WHITE)
+		_fail_score_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		_fail_score_label.add_theme_constant_override("outline_size", 3)
+		fail_vbox.add_child(_fail_score_label)
+		
+		# Buttons row
+		var btn_row := HBoxContainer.new()
+		btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		btn_row.add_theme_constant_override("separation", 20)
+		fail_vbox.add_child(btn_row)
+		
+		# Restart Button
+		var btn_restart := Button.new()
+		btn_row.add_child(btn_restart)
+		HudUiKit.make_retro_circular_button(btn_restart, "restart", red_accent)
+		btn_restart.pressed.connect(func():
+			get_tree().paused = false
+			get_tree().reload_current_scene()
+		)
+		
+		# Shop/Mastery Button
+		var btn_shop := Button.new()
+		btn_row.add_child(btn_shop)
+		HudUiKit.make_retro_circular_button(btn_shop, "menu", red_accent)
+		btn_shop.pressed.connect(func():
+			var main = get_tree().current_scene
+			if main and main.has_method("open_shop"):
+				main.call("open_shop")
+		)
+		
+		# Home Button
+		var btn_home := Button.new()
+		btn_row.add_child(btn_home)
+		HudUiKit.make_retro_circular_button(btn_home, "home", red_accent)
+		btn_home.pressed.connect(func():
+			get_tree().quit()
+		)
 
 	call_deferred("_find_player")
 
 
 # ===================================================================
-# _setup_shop_panel_layout
+# _setup_shop_panel_layout — responsive shop panel with overlay
 # ===================================================================
 func _setup_shop_panel_layout() -> void:
 	var sp: ColorRect = $Control/ShopPanel as ColorRect
@@ -231,10 +459,11 @@ func _setup_shop_panel_layout() -> void:
 	var bg_panel := Panel.new()
 	bg_panel.name = "ShopPixelBg"
 	bg_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg_panel.add_theme_stylebox_override("panel", HudUiKit.make_pixel_panel(Color(0.02, 0.02, 0.04, 0.96), Color(1.0, 0.85, 0.0), 6))
 	sp.add_child(bg_panel)
 	sp.move_child(bg_panel, 0)
-	HudUiKit.decorate_retro_panel(bg_panel, Color(1.0, 0.85, 0.0))
+	
+	# Accent color for Armory/Shop is Gold
+	HudUiKit.decorate_8bit_menu_panel(bg_panel, "ARMORY", Color(1.0, 0.85, 0.0))
 
 	var rim := ColorRect.new()
 	rim.name = "ShopRim"
@@ -274,7 +503,7 @@ func _setup_shop_panel_layout() -> void:
 
 
 # ===================================================================
-# _setup_title_panel_layout
+# _setup_title_panel_layout — title screen layout
 # ===================================================================
 func _setup_title_panel_layout() -> void:
 	var tp: ColorRect = $Control/TitlePanel as ColorRect
@@ -351,7 +580,7 @@ func _setup_title_panel_layout() -> void:
 
 
 # ===================================================================
-# _setup_hud_labels
+# _setup_hud_labels — score, countdown, round-complete, reload, etc.
 # ===================================================================
 func _setup_hud_labels() -> void:
 	var score_lbl := $Control/ScoreLabel as Label
@@ -485,6 +714,7 @@ func _setup_hud_labels() -> void:
 		rl.vertical_alignment   = VERTICAL_ALIGNMENT_CENTER
 
 func _ensure_reload_ui() -> void:
+	# Creates the rhythm-bar style reload minigame UI
 	var control = $Control
 	if control.has_node("ReloadPanel"):
 		return
@@ -565,6 +795,7 @@ func _set_reload_panel_visible(visible: bool) -> void:
 		panel.visible = visible
 
 func _update_reload_progress(time_left: float, duration: float) -> void:
+	# Updates the reload fill bar and marker position
 	var panel := $Control.get_node_or_null("ReloadPanel") as ColorRect
 	if not panel:
 		return
@@ -579,7 +810,7 @@ func _update_reload_progress(time_left: float, duration: float) -> void:
 
 
 # ===================================================================
-# _build_pause_panel — glassmorphism pause overlay
+# _build_pause_panel — glassmorphism pause overlay with settings
 # ===================================================================
 func _build_pause_panel() -> void:
 	_pause_panel = ColorRect.new()
@@ -603,75 +834,107 @@ func _build_pause_panel() -> void:
 	var card := Panel.new()
 	card.name         = "PauseCard"
 	card.set_anchors_preset(Control.PRESET_CENTER)
-	card.custom_minimum_size = Vector2(380, 380)
-	card.size         = Vector2(380, 380)
-	card.pivot_offset = Vector2(190, 190)
-	var style := HudUiKit.make_pixel_panel(
-			Color(0.02, 0.02, 0.04, 0.96),
-			Color(0.0, 1.0, 1.0), 6)
-	card.add_theme_stylebox_override("panel", style)
+	card.custom_minimum_size = Vector2(380, 280)
+	card.size         = Vector2(380, 280)
+	card.pivot_offset = Vector2(190, 140)
 	_pause_panel.add_child(card)
-	HudUiKit.decorate_retro_panel(card, Color(0.0, 1.0, 1.0))
+	
+	# Accent color for Paused panel is Cyan
+	var accent_color := Color(0.25, 0.82, 1.00)
+	HudUiKit.decorate_8bit_menu_panel(card, "PAUSED", accent_color)
 
 	var card_vbox := VBoxContainer.new()
 	card_vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
 	card_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	card_vbox.add_theme_constant_override("separation", 14)
+	card_vbox.add_theme_constant_override("separation", 18)
 	card_vbox.offset_left = 30
 	card_vbox.offset_right = -30
-	card_vbox.offset_top = 15
+	card_vbox.offset_top = 35  # Margin below title capsule
 	card_vbox.offset_bottom = -15
 	card.add_child(card_vbox)
 
-	_pause_label = Label.new()
-	_pause_label.text = "PAUSED"
-	_pause_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_pause_label.vertical_alignment   = VERTICAL_ALIGNMENT_CENTER
-	_pause_label.add_theme_font_size_override("font_size",       40)
-	_pause_label.add_theme_color_override("font_color",          C_GOLD_BRIGHT)
-	_pause_label.add_theme_color_override("font_outline_color",  C_OUTLINE)
-	_pause_label.add_theme_constant_override("outline_size",     10)
-	_pause_label.add_theme_color_override("font_shadow_color",   Color(1.0, 0.82, 0.0, 0.28))
-	_pause_label.add_theme_constant_override("shadow_offset_x",  0)
-	_pause_label.add_theme_constant_override("shadow_offset_y",  4)
-	_pause_label.custom_minimum_size = Vector2(320, 50)
-	card_vbox.add_child(_pause_label)
+	# --- SOUND ROW ---
+	var sound_row := HBoxContainer.new()
+	sound_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	sound_row.add_theme_constant_override("separation", 8)
+	card_vbox.add_child(sound_row)
+	
+	var sound_icon_c := Control.new()
+	sound_icon_c.custom_minimum_size = Vector2(24, 24)
+	sound_row.add_child(sound_icon_c)
+	HudUiKit.decorate_with_retro_icon(sound_icon_c, "note", accent_color)
 
-	# Reusable button style box creators
-	var make_btn_style := func(border_color: Color) -> StyleBoxFlat:
-		var s := StyleBoxFlat.new()
-		s.bg_color = Color(0.08, 0.11, 0.20, 0.88)
-		s.border_width_left = 3; s.border_width_right = 3
-		s.border_width_top = 3; s.border_width_bottom = 3
-		s.border_color = border_color
-		s.corner_radius_top_left = 0; s.corner_radius_top_right = 0
-		s.corner_radius_bottom_left = 0; s.corner_radius_bottom_right = 0
-		return s
+	var sound_lbl := Label.new()
+	sound_lbl.text = "SOUND: "
+	sound_lbl.add_theme_font_size_override("font_size", 13)
+	sound_lbl.add_theme_color_override("font_color", Color.WHITE)
+	sound_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+	sound_lbl.add_theme_constant_override("outline_size", 3)
+	sound_row.add_child(sound_lbl)
+	
+	var sound_slider := HSlider.new()
+	sound_slider.custom_minimum_size = Vector2(180, 24)
+	sound_slider.min_value = 0.0
+	sound_slider.max_value = 1.0
+	sound_slider.step = 0.05
+	sound_slider.value = db_to_linear(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Standard")))
+	sound_row.add_child(sound_slider)
+	HudUiKit.make_retro_slider(sound_slider, accent_color)
+	sound_slider.value_changed.connect(func(val: float):
+		AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Standard"), linear_to_db(clampf(val, 0.0001, 1.0)))
+	)
 
-	var make_btn_hover := func(border_color: Color) -> StyleBoxFlat:
-		var s := StyleBoxFlat.new()
-		s.bg_color = Color(0.12, 0.16, 0.30, 0.92)
-		s.border_width_left = 3; s.border_width_right = 3
-		s.border_width_top = 3; s.border_width_bottom = 3
-		s.border_color = C_GOLD_BRIGHT
-		s.corner_radius_top_left = 0; s.corner_radius_top_right = 0
-		s.corner_radius_bottom_left = 0; s.corner_radius_bottom_right = 0
-		return s
+	# --- MUSIC ROW ---
+	var music_row := HBoxContainer.new()
+	music_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	music_row.add_theme_constant_override("separation", 8)
+	card_vbox.add_child(music_row)
+	
+	var music_icon_c := Control.new()
+	music_icon_c.custom_minimum_size = Vector2(24, 24)
+	music_row.add_child(music_icon_c)
+	HudUiKit.decorate_with_retro_icon(music_icon_c, "clef", accent_color)
 
-	var setup_btn := func(btn: Button, btn_text: String, border: Color) -> void:
-		btn.text = btn_text
-		btn.custom_minimum_size = Vector2(300, 55) # Touch target: 55px height
-		btn.add_theme_font_size_override("font_size", 18)
-		btn.add_theme_color_override("font_color", C_TEXT_PRI)
-		btn.add_theme_color_override("font_hover_color", C_GOLD_BRIGHT)
-		btn.add_theme_stylebox_override("normal", make_btn_style.call(border))
-		btn.add_theme_stylebox_override("hover", make_btn_hover.call(border))
-		btn.add_theme_stylebox_override("pressed", make_btn_hover.call(border))
-		btn.add_theme_stylebox_override("focus", make_btn_style.call(border))
+	var music_lbl := Label.new()
+	music_lbl.text = "MUSIC: "
+	music_lbl.add_theme_font_size_override("font_size", 13)
+	music_lbl.add_theme_color_override("font_color", Color.WHITE)
+	music_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+	music_lbl.add_theme_constant_override("outline_size", 3)
+	music_row.add_child(music_lbl)
+	
+	var music_slider := HSlider.new()
+	music_slider.custom_minimum_size = Vector2(180, 24)
+	music_slider.min_value = 0.0
+	music_slider.max_value = 1.0
+	music_slider.step = 0.05
+	
+	var current_scene = get_tree().current_scene
+	var current_music_vol := 1.0
+	if current_scene and current_scene.has_node("BGM"):
+		current_music_vol = db_to_linear(current_scene.get_node("BGM").volume_db) / 0.4
+	music_slider.value = clampf(current_music_vol, 0.0, 1.0)
+	music_row.add_child(music_slider)
+	HudUiKit.make_retro_slider(music_slider, accent_color)
+	music_slider.value_changed.connect(func(val: float):
+		var main = get_tree().current_scene
+		if main:
+			if main.has_node("BGM"):
+				main.get_node("BGM").volume_db = linear_to_db(clampf(val * 0.4, 0.0001, 1.0))
+			if main.has_node("IntermissionBGM"):
+				main.get_node("IntermissionBGM").volume_db = linear_to_db(clampf(val * 0.3, 0.0001, 1.0))
+	)
 
-	# 1. Resume Button
+	# --- BUTTONS ROW ---
+	var buttons_row := HBoxContainer.new()
+	buttons_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons_row.add_theme_constant_override("separation", 24)
+	card_vbox.add_child(buttons_row)
+
+	# 1. Resume / Play Button
 	var btn_resume := Button.new()
-	setup_btn.call(btn_resume, "RESUME", Color(0.22, 1.00, 0.55, 0.62))
+	buttons_row.add_child(btn_resume)
+	HudUiKit.make_retro_circular_button(btn_resume, "play", accent_color)
 	btn_resume.pressed.connect(func():
 		var main = get_tree().current_scene
 		if main:
@@ -679,34 +942,33 @@ func _build_pause_panel() -> void:
 			main.call("_freeze_player", false)
 		get_tree().paused = false
 	)
-	card_vbox.add_child(btn_resume)
 
 	# 2. Restart Button
 	var btn_restart := Button.new()
-	setup_btn.call(btn_restart, "RESTART", Color(1.00, 0.85, 0.20, 0.62))
+	buttons_row.add_child(btn_restart)
+	HudUiKit.make_retro_circular_button(btn_restart, "restart", accent_color)
 	btn_restart.pressed.connect(func():
 		get_tree().paused = false
 		get_tree().reload_current_scene()
 	)
-	card_vbox.add_child(btn_restart)
 
-	# 3. Quit Button
+	# 3. Home / Quit Button
 	var btn_quit := Button.new()
-	setup_btn.call(btn_quit, "QUIT GAME", Color(1.00, 0.20, 0.20, 0.62))
+	buttons_row.add_child(btn_quit)
+	HudUiKit.make_retro_circular_button(btn_quit, "home", accent_color)
 	btn_quit.pressed.connect(func():
 		get_tree().quit()
 	)
-	card_vbox.add_child(btn_quit)
 
 	var hint := Label.new()
 	hint.name = "PauseHint"
 	hint.text = "Press ESC to resume"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.add_theme_font_size_override("font_size",       13)
+	hint.add_theme_font_size_override("font_size",       11)
 	hint.add_theme_color_override("font_color",          C_TEXT_DIM)
 	hint.add_theme_constant_override("outline_size",     3)
 	hint.add_theme_color_override("font_outline_color",  C_OUTLINE)
-	hint.custom_minimum_size = Vector2(320, 20)
+	hint.custom_minimum_size = Vector2(320, 16)
 	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card_vbox.add_child(hint)
 	if OS.has_feature("mobile"):
@@ -714,7 +976,7 @@ func _build_pause_panel() -> void:
 
 
 # ===================================================================
-# _find_player
+# _find_player — connects player signals for weapon changes & reload
 # ===================================================================
 func _find_player() -> void:
 	var player := get_tree().get_first_node_in_group("player")
@@ -740,15 +1002,12 @@ func _on_player_weapon_changed(inv: Array, idx: int, cooldowns: Dictionary) -> v
 
 func _on_reload_started(duration: float) -> void:
 	_reload_ui_total_duration = duration
-	# HUD reload panel disabled — diegetic bar on player character is used instead
 
 func _on_reload_ticking(time_left: float) -> void:
-	# HUD reload panel disabled — diegetic bar on player character is used instead
 	pass
 
 func _on_reload_finished() -> void:
 	_reload_ui_total_duration = 0.0
-	# HUD reload panel disabled — diegetic bar on player character is used instead
 
 func _on_coin_anim_finished() -> void:
 	_animating_coins = false
@@ -784,6 +1043,7 @@ func flash_heal() -> void:
 
 
 func update_health(val: int, max_val: int = 3) -> void:
+	# Rebuilds heart icons with elastic scale animation on change
 	var hearts_node := $Control/Hearts
 	while hearts_node.get_child_count() < max_val:
 		var hr := TextureRect.new()
@@ -815,11 +1075,10 @@ func update_health(val: int, max_val: int = 3) -> void:
 
 
 # ===================================================================
-# PUBLIC API — Shop
+# PUBLIC API — Shop (open/close with tween animations)
 # ===================================================================
 func show_shop() -> void:
 	_hotbar.set_desc_visible(false)
-	# Ensure OS cursor is visible when interacting with shop UI
 	if Input.get_mouse_mode() != Input.MOUSE_MODE_VISIBLE:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		
@@ -828,7 +1087,7 @@ func show_shop() -> void:
 		if OS.has_feature("mobile"):
 			sprom.text = "[center]Tap outside the panel to close[/center]"
 		else:
-			sprom.text = ("[center]  " + _close_icon() + " Close  |  Press TAB or click Close to return to Intermission[/center]")
+			sprom.text = ("[center]  " + _close_icon() + "  Close  |  Press TAB or click Close to return to Intermission[/center]")
 	
 	var shop_coins := $Control/ShopPanel/ShopCoins as Label
 	if shop_coins:
@@ -931,6 +1190,7 @@ func hide_title() -> void:
 
 
 func _start_title_particles() -> void:
+	# Ambient floating motes on the title screen
 	if _title_particles and is_instance_valid(_title_particles):
 		return
 	var tp := $Control/TitlePanel as ColorRect
@@ -978,6 +1238,7 @@ func show_intermission(round_idx: int) -> void:
 
 
 func show_countdown(round_idx: int) -> void:
+	# Delegates the 3-2-1-GO sequence to HudCombat
 	hide_shop()
 	$Control/RoundCompletePanel.hide()
 	$Control/RoundCompleteLabel.hide()
@@ -1010,29 +1271,44 @@ func update_enemies_remaining(count: int) -> void:
 
 
 func show_round_complete(round_idx: int, prize: int) -> void:
+	# Shows the round-complete card with lives/time bars and coin-fly animation
 	$Control/RoundLabel.text      = ""
 	$Control/EnemyCountLabel.text = ""
 
-	var rcl := $Control/RoundCompleteLabel as Label
-	rcl.text = "Round " + str(round_idx) + " Complete!"
-	rcl.show(); rcl.scale = Vector2(2.4, 2.4); rcl.modulate.a = 0.0
-	var rl_t := create_tween().set_parallel(true).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_ELASTIC)
-	rl_t.tween_property(rcl, "scale",      Vector2.ONE, 0.58)
-	rl_t.tween_property(rcl, "modulate:a", 1.0,         0.30)
+	var player = get_tree().get_first_node_in_group("player")
+	var lives_pct := 1.0
+	if player and "health" in player and "max_health" in player:
+		lives_pct = clampf(float(player.health) / float(player.max_health), 0.0, 1.0)
+	if _rc_lives_bar:
+		_rc_lives_bar.value_percent = lives_pct
 
-	var pl := $Control/PrizeLabel as Label
-	pl.text = "⬡  +" + str(prize)
-	pl.show(); pl.scale = Vector2(0.5, 0.5); pl.modulate.a = 0.0
-	var pl_t := create_tween().set_parallel(true).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-	pl_t.tween_property(pl, "scale",      Vector2.ONE, 0.38).set_delay(0.20)
-	pl_t.tween_property(pl, "modulate:a", 1.0,         0.30).set_delay(0.20)
+	var main := get_tree().current_scene
+	var elapsed_s := 0.0
+	if main and "round_start_time" in main:
+		elapsed_s = float(Time.get_ticks_msec() - main.round_start_time) / 1000.0
+	var time_pct := clampf(1.0 - (elapsed_s / 60.0), 0.1, 1.0)
+	if _rc_time_bar:
+		_rc_time_bar.value_percent = time_pct
+
+	var score_val: int = main.score if main and "score" in main else 0
+	if _rc_score_label:
+		_rc_score_label.text = "SCORE: " + str(score_val)
 
 	$Control/RoundCompletePanel.show()
+	
+	if _rc_card:
+		_rc_card.scale = Vector2(0.2, 0.2)
+		_rc_card.pivot_offset = _rc_card.size / 2.0
+		var card_t := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		card_t.tween_property(_rc_card, "scale", Vector2.ONE, 0.45)
+
+	$Control/RoundCompleteLabel.hide()
+	$Control/PrizeLabel.hide()
+
 	hide_gameplay_prompt()
 	_play_sfx(_round_win_sound, 0.0)
 	_combat.spawn_round_complete_confetti()
 
-	var main := get_tree().current_scene
 	var target_score: int = main.get("score") if main and "score" in main else 0
 	var prev_score:   int = target_score - prize
 	$Control/ScoreLabel.text = str(prev_score)
@@ -1088,9 +1364,11 @@ func show_game_over() -> void:
 		"$Control/CountdownOverlay", "$Control/CountdownLabel",
 		"$Control/RoundCompletePanel", "$Control/RoundCompleteLabel",
 		"$Control/PrizeLabel", "$Control/IntermissionPrompt",
+		"$Control/GameOverLabel", "$Control/FinalScoreLabel", "$Control/RestartPrompt"
 	]:
 		var n := get_node_or_null(node_path.trim_prefix("$"))
 		if n: n.hide()
+	
 	$Control/RoundLabel.text      = ""
 	$Control/EnemyCountLabel.text = ""
 	$Control/CountdownOverlay.hide()
@@ -1101,38 +1379,41 @@ func show_game_over() -> void:
 	$Control/IntermissionPrompt.hide()
 
 	var go_bg := $Control/GameOverBg as ColorRect
-	go_bg.color = Color(0.55, 0.0, 0.0, 0.0)
+	go_bg.color = Color(0.3, 0.0, 0.0, 0.0)
 	go_bg.show()
 	var bg_t := create_tween()
-	bg_t.tween_property(go_bg, "color", Color(0.50, 0.0, 0.0, 0.80), 0.22)
-	bg_t.tween_property(go_bg, "color", Color(0.04, 0.0, 0.0, 0.74), 0.88)
-
-	var label := $Control/GameOverLabel as Label
-	label.show()
-	label.modulate = Color(1, 0.12, 0.12, 0)
-	label.scale    = Vector2(0.28, 0.28)
-	label.pivot_offset = label.size / 2.0
-	var tween := create_tween().set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-	tween.tween_property(label, "modulate", Color(1, 0.12, 0.12, 1), 0.68)
-	tween.parallel().tween_property(label, "scale", Vector2(1.05, 1.05), 0.68)
-	tween.tween_property(label, "scale", Vector2.ONE, 0.22)
-	await tween.finished
+	bg_t.tween_property(go_bg, "color", Color(0.04, 0.01, 0.01, 0.78), 0.5)
 
 	var main := get_tree().current_scene
-	if main and main.has_method("add_score"):
-		var fs_lbl := $Control/FinalScoreLabel as Label
-		fs_lbl.text = "Score: 0"
-		fs_lbl.show()
+	var elapsed_s := 0.0
+	if main and "round_start_time" in main:
+			elapsed_s = float(Time.get_ticks_msec() - main.round_start_time) / 1000.0
+	var time_pct := clampf(elapsed_s / 60.0, 0.05, 1.0)
+	if _fail_time_bar:
+		_fail_time_bar.value_percent = time_pct
+	if _fail_lives_bar:
+		_fail_lives_bar.value_percent = 0.0 # Empty
+
+	if _fail_card:
+		_fail_card.scale = Vector2(0.2, 0.2)
+		_fail_card.pivot_offset = _fail_card.size / 2.0
+		_fail_card.show()
+		var card_t := create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		card_t.tween_property(_fail_card, "scale", Vector2.ONE, 0.45)
+		await card_t.finished
+
+	if main and "score" in main:
 		var target_s: int = main.score
 		for si in range(23):
-			fs_lbl.text = "Score: " + str(int(float(target_s) * float(si) / 22.0))
+			if _fail_score_label:
+				_fail_score_label.text = "SCORE: " + str(int(float(target_s) * float(si) / 22.0))
 			if si < 22:
 				_play_coin_chink(si % 9)
 				await get_tree().create_timer(0.038).timeout
-		fs_lbl.text = "Score: " + str(target_s)
-
-	await get_tree().create_timer(0.80).timeout
-	show_restart_prompt()
+		if _fail_score_label:
+			_fail_score_label.text = "SCORE: " + str(target_s)
+	
+	can_restart = true
 
 
 func show_restart_prompt() -> void:
@@ -1194,7 +1475,7 @@ func play_kaching() -> void:
 
 
 # ===================================================================
-# Icon helpers
+# Icon helpers — adapts input icons to gamepad vs keyboard
 # ===================================================================
 func _is_gamepad() -> bool:
 	return Input.get_connected_joypads().size() > 0
@@ -1237,7 +1518,7 @@ func _icon_tag(icon_name: String) -> String:
 
 
 # ===================================================================
-# Subtitles
+# Subtitles — random title screen taglines
 # ===================================================================
 const SUBTITLES: Array[String] = [
 	"Probably Not a War Crime",
@@ -1264,7 +1545,7 @@ func _random_subtitle() -> String:
 
 
 # ===================================================================
-# _play_sfx
+# _play_sfx — helper to fire-and-forget audio streams
 # ===================================================================
 func _play_sfx(stream: AudioStream, volume_db: float = 0.0, pitch: float = 1.0) -> void:
 	if not stream:
@@ -1280,7 +1561,7 @@ func _play_sfx(stream: AudioStream, volume_db: float = 0.0, pitch: float = 1.0) 
 
 
 # ===================================================================
-# _process — animation ticks
+# _process — animation ticks for all HUD elements
 # ===================================================================
 func _process(delta: float) -> void:
 	_time += delta
@@ -1321,11 +1602,6 @@ func _process(delta: float) -> void:
 				pt.tween_property(pause_card, "scale", Vector2.ONE, 0.52)
 		elif not is_paused and _pause_panel.visible:
 			_pause_panel.hide()
-		if _pause_panel.visible and _pause_label:
-			_pause_label.rotation   = sin(_time * 4.4) * 0.068
-			var p_sc: float = 1.0 + sin(_time * 6.8) * 0.048
-			_pause_label.scale      = Vector2(p_sc, p_sc)
-			_pause_label.pivot_offset = _pause_label.size / 2
 
 	# ── 3. Autohide timers ───────────────────────────────────────────
 	var main_scene = get_tree().current_scene
@@ -1402,7 +1678,7 @@ func _process(delta: float) -> void:
 				h.pivot_offset = h.size / 2
 				h.rotation     = sin(_time * 3.4 + float(i)) * 0.033
 
-	# ── 8. Hotbar + weapon desc ───────────────────────────────────────
+	# ── 8. Hotbar + weapon desc ──────────────────────────────────────
 	var player := get_tree().get_first_node_in_group("player")
 	
 	# Update Passives Shelf
@@ -1476,6 +1752,7 @@ func _process(delta: float) -> void:
 
 
 func _pre_render_coin_textures() -> void:
+	# Bakes a sprite-sheet of coin rotation frames at startup
 	if HudUiKit.coin_frames.size() > 0:
 		return
 	var size_px := 64
@@ -1517,75 +1794,57 @@ func get_virtual_aim_vector() -> Vector2:
 
 
 func show_unlock_notification(weapon_name: String) -> void:
-	# Epic celebration sound
 	_play_sfx(_round_win_sound, 1.0, 1.1)
 	
-	# Create a gorgeous notification panel
 	var notif := Panel.new()
-	notif.size = Vector2(420, 120)
+	notif.size = Vector2(420, 110)
 	var screen_size = $Control.size
 	notif.position = Vector2((screen_size.x - 420) / 2.0, 80)
-	notif.pivot_offset = Vector2(210, 60)
+	notif.pivot_offset = Vector2(210, 55)
 	notif.scale = Vector2.ZERO
 	
-	# Pixel-art stylebox
-	var notif_style = HudUiKit.make_pixel_panel(Color(0.02, 0.02, 0.04, 0.96), Color(0.0, 1.0, 1.0), 5)
-	notif.add_theme_stylebox_override("panel", notif_style)
 	$Control.add_child(notif)
-	HudUiKit.decorate_retro_panel(notif, Color(0.0, 1.0, 1.0))
+	HudUiKit.decorate_8bit_menu_panel(notif, "WEAPON UNLOCKED", Color(0.0, 1.0, 1.0))
 	
-	# Icon
 	var icon := TextureRect.new()
 	icon.texture = _weapon_textures.get(weapon_name)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.size = Vector2(64, 64)
-	icon.position = Vector2(20, 28)
+	icon.position = Vector2(20, 26)
 	notif.add_child(icon)
 	
-	# Title
-	var title := Label.new()
-	title.text = "WEAPON UNLOCKED!"
-	title.add_theme_font_size_override("font_size", 22)
-	title.add_theme_color_override("font_color", Color(0.3, 0.8, 1.0))
-	title.add_theme_color_override("font_outline_color", Color.BLACK)
-	title.add_theme_constant_override("outline_size", 6)
-	title.position = Vector2(100, 20)
-	title.size = Vector2(300, 30)
-	notif.add_child(title)
-	
-	# Subtitle/Weapon Name
 	var desc := Label.new()
 	var weapon_display_name = weapon_name.capitalize()
 	if weapon_name == "smg":
 		weapon_display_name = "SMG"
-	desc.text = weapon_display_name + " added to your inventory."
+	desc.text = weapon_display_name + " added to inventory."
 	desc.add_theme_font_size_override("font_size", 14)
 	desc.add_theme_color_override("font_color", Color(0.8, 0.85, 0.95))
-	desc.position = Vector2(100, 52)
+	desc.add_theme_color_override("font_outline_color", Color.BLACK)
+	desc.add_theme_constant_override("outline_size", 3)
+	desc.position = Vector2(100, 32)
 	desc.size = Vector2(300, 25)
 	notif.add_child(desc)
 	
-	# micro-desc
 	var slot_lbl := Label.new()
 	slot_lbl.text = "Scroll mouse or press Q/E to equip"
 	slot_lbl.add_theme_font_size_override("font_size", 10)
 	slot_lbl.add_theme_color_override("font_color", Color(0.5, 0.6, 0.7))
-	slot_lbl.position = Vector2(100, 75)
+	slot_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+	slot_lbl.add_theme_constant_override("outline_size", 3)
+	slot_lbl.position = Vector2(100, 58)
 	slot_lbl.size = Vector2(300, 20)
 	notif.add_child(slot_lbl)
 	
-	# Animate the entrance
 	var tween := notif.create_tween().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 	tween.tween_property(notif, "scale", Vector2.ONE, 0.4)
 	
-	# Subtle bounce wobble
 	var wobble := notif.create_tween().set_loops(2)
 	wobble.tween_property(notif, "rotation", 0.03, 0.25).set_trans(Tween.TRANS_SINE)
 	wobble.tween_property(notif, "rotation", -0.03, 0.25).set_trans(Tween.TRANS_SINE)
 	wobble.chain().tween_property(notif, "rotation", 0.0, 0.15)
 	
-	# Auto fade out and queue_free
 	var fade_tween := notif.create_tween().set_ease(Tween.EASE_IN)
 	fade_tween.tween_interval(3.2)
 	fade_tween.tween_property(notif, "scale", Vector2.ZERO, 0.25).set_trans(Tween.TRANS_BACK)
@@ -1593,10 +1852,8 @@ func show_unlock_notification(weapon_name: String) -> void:
 
 
 func show_milestone_completed_notification(item_name: String) -> void:
-	# Alert sound (nice high pitched drum win / tick)
 	_play_sfx(_round_win_sound, 0.0, 1.25)
 	
-	# Create a gorgeous notification panel
 	var notif := Panel.new()
 	notif.size = Vector2(460, 90)
 	var screen_size = $Control.size
@@ -1604,25 +1861,9 @@ func show_milestone_completed_notification(item_name: String) -> void:
 	notif.pivot_offset = Vector2(230, 45)
 	notif.scale = Vector2.ZERO
 	
-	# Pixel-art stylebox with a gold-tinted border
-	var notif_style = HudUiKit.make_pixel_panel(Color(0.02, 0.02, 0.04, 0.96), Color(1.0, 0.85, 0.0), 5)
-	notif.add_theme_stylebox_override("panel", notif_style)
 	$Control.add_child(notif)
-	HudUiKit.decorate_retro_panel(notif, Color(1.0, 0.85, 0.0))
+	HudUiKit.decorate_8bit_menu_panel(notif, "MILESTONE COMPLETED", Color(1.0, 0.85, 0.0))
 	
-	# Title
-	var title := Label.new()
-	title.text = "🎯 MILESTONE COMPLETED!"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 18)
-	title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.0))
-	title.add_theme_color_override("font_outline_color", Color.BLACK)
-	title.add_theme_constant_override("outline_size", 5)
-	title.position = Vector2(0, 15)
-	title.size = Vector2(460, 25)
-	notif.add_child(title)
-	
-	# Subtitle/Description
 	var desc := Label.new()
 	desc.text = "%s is now ready to buy in the Mastery Dashboard!" % item_name.to_upper()
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1630,25 +1871,24 @@ func show_milestone_completed_notification(item_name: String) -> void:
 	desc.add_theme_color_override("font_color", Color(0.85, 0.9, 1.0))
 	desc.add_theme_color_override("font_outline_color", Color.BLACK)
 	desc.add_theme_constant_override("outline_size", 4)
-	desc.position = Vector2(0, 45)
+	desc.position = Vector2(0, 32)
 	desc.size = Vector2(460, 20)
 	notif.add_child(desc)
 	
-	# Tip text
 	var tip := Label.new()
 	tip.text = "Press TAB or SELECT to open the Dashboard"
 	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tip.add_theme_font_size_override("font_size", 9)
 	tip.add_theme_color_override("font_color", Color(0.5, 0.6, 0.7))
-	tip.position = Vector2(0, 65)
+	tip.add_theme_color_override("font_outline_color", Color.BLACK)
+	tip.add_theme_constant_override("outline_size", 3)
+	tip.position = Vector2(0, 56)
 	tip.size = Vector2(460, 15)
 	notif.add_child(tip)
 	
-	# Animate the entrance
 	var tween := notif.create_tween().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 	tween.tween_property(notif, "scale", Vector2.ONE, 0.35)
 	
-	# Auto fade out and queue_free
 	var fade_tween := notif.create_tween().set_ease(Tween.EASE_IN)
 	fade_tween.tween_interval(3.5)
 	fade_tween.tween_property(notif, "scale", Vector2.ZERO, 0.25).set_trans(Tween.TRANS_BACK)
@@ -1659,6 +1899,7 @@ func show_milestone_completed_notification(item_name: String) -> void:
 # TOUCH CONTROLS INNER CLASSES
 # ===================================================================
 class TouchJoystick extends Control:
+	# Virtual joystick for touch input — drawn as translucent circles
 	var base_radius := 60.0
 	var handle_radius := 25.0
 	var joystick_vector := Vector2.ZERO
@@ -1708,6 +1949,7 @@ class TouchJoystick extends Control:
 
 
 class TouchControlLayer extends Control:
+	# Full-screen touch overlay with dual joysticks and buttons
 	var left_joystick: TouchJoystick
 	var right_joystick: TouchJoystick
 	var weapon_prev_btn: Button
@@ -1814,6 +2056,7 @@ class TouchControlLayer extends Control:
 			weapon_next_btn.position = Vector2(sz.x - 80, sz.y - 120)
 
 	func _input(event: InputEvent) -> void:
+		# Handles touch events for joysticks and translates to input actions
 		if not is_visible_in_tree():
 			return
 			
@@ -1843,16 +2086,15 @@ class TouchControlLayer extends Control:
 				   weapon_next_btn.get_global_rect().has_point(touch_event.position):
 					return
 					
-				# If on title screen or intermission, any tap starts the game / round
 				if main:
 					var st = main.get("state")
-					if st == 0: # State.TITLE
+					if st == 0:
 						var ev := InputEventAction.new()
 						ev.action = "confirm"
 						ev.pressed = true
 						Input.parse_input_event(ev)
 						return
-					elif st == 1: # State.INTERMISSION
+					elif st == 1:
 						var ev := InputEventAction.new()
 						ev.action = "confirm"
 						ev.pressed = true

@@ -16,107 +16,7 @@ var _cards_container: Control
 var _ambient_motes: CPUParticles2D
 var _panel_gradients: Array[ColorRect] = []
 
-const MILESTONES := {
-	"shotgun": {
-		"name": "Shotgun",
-		"desc": "Master basic arms. Get 100 kills with the starting Pistol.",
-		"source": "pistol",
-		"target": 100,
-		"type": "kills",
-		"cost": 250,
-		"category": "weapon"
-	},
-	"smg": {
-		"name": "SMG",
-		"desc": "Prove close-quarters mastery. Get 100 kills with the Shotgun.",
-		"source": "shotgun",
-		"target": 100,
-		"type": "kills",
-		"cost": 500,
-		"category": "weapon"
-	},
-	"minigun": {
-		"name": "Minigun",
-		"desc": "Unleash rapid fire. Get 150 kills with the SMG.",
-		"source": "smg",
-		"target": 150,
-		"type": "kills",
-		"cost": 1000,
-		"category": "weapon"
-	},
-	"sniper": {
-		"name": "Sniper Rifle",
-		"desc": "Achieve flawless survival. Survive 5 minutes without taking damage.",
-		"source": "survival",
-		"target": 300,
-		"type": "time",
-		"cost": 1500,
-		"category": "weapon"
-	},
-	"missile": {
-		"name": "Missile Launcher",
-		"desc": "Master precision destruction. Get 50 kills with the Sniper Rifle.",
-		"source": "sniper",
-		"target": 50,
-		"type": "kills",
-		"cost": 2500,
-		"category": "weapon"
-	},
-	"shield": {
-		"name": "Shield Upgrade",
-		"desc": "Absorbs damage and recharges. Survive 2 minutes in a single run.",
-		"source": "run",
-		"target": 120,
-		"type": "time",
-		"cost": 400,
-		"category": "passive"
-	},
-	"speed_loader": {
-		"name": "Speed Loader",
-		"desc": "Reload weapons 30% faster. Fire 1,000 total bullets.",
-		"source": "bullets",
-		"target": 1000,
-		"type": "bullets",
-		"cost": 600,
-		"category": "passive"
-	},
-	"golden_touch": {
-		"name": "Golden Touch",
-		"desc": "20% chance to drop double coins. Collect 500 total coins.",
-		"source": "coins",
-		"target": 500,
-		"type": "coins",
-		"cost": 800,
-		"category": "passive"
-	},
-	"magnet_ring": {
-		"name": "Magnet Ring",
-		"desc": "+120% collection radius. Collect 100 pickup items.",
-		"source": "items",
-		"target": 100,
-		"type": "items",
-		"cost": 500,
-		"category": "passive"
-	},
-	"toughness": {
-		"name": "Toughness",
-		"desc": "35% chance to ignore any damage. Defeat 250 total enemies.",
-		"source": "total",
-		"target": 250,
-		"type": "kills",
-		"cost": 750,
-		"category": "passive"
-	},
-	"damage_boost": {
-		"name": "Damage Boost",
-		"desc": "Permanent +35% bullet damage. Achieve a 10x combo multiplier.",
-		"source": "combo",
-		"target": 10,
-		"type": "combo",
-		"cost": 1200,
-		"category": "passive"
-	}
-}
+const MILESTONES = WeaponDB.MILESTONES
 
 func init(panel: ColorRect, textures: Dictionary, hud: CanvasLayer) -> void:
 	_panel = panel
@@ -144,6 +44,7 @@ func clear_cards() -> void:
 
 
 func build_cards() -> void:
+	# Rebuilds the entire mastery dashboard: weapon and passive grids
 	clear_cards()
 
 	# 1. Main container
@@ -157,7 +58,7 @@ func build_cards() -> void:
 	title_lbl.text = "🎯 WEAPON & PASSIVE MASTERY"
 	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_lbl.add_theme_font_size_override("font_size", 32)
-	title_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.0)) # Retro Golden Yellow
+	title_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.0))
 	title_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
 	title_lbl.add_theme_constant_override("outline_size", 10)
 	title_lbl.position = Vector2(0, 20)
@@ -212,7 +113,6 @@ func build_cards() -> void:
 	passives_title.add_theme_color_override("font_outline_color", Color.BLACK)
 	passives_title.add_theme_constant_override("outline_size", 6)
 	
-	# Spacer
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 10)
 	list_container.add_child(spacer)
@@ -226,6 +126,7 @@ func build_cards() -> void:
 
 	var player = _hud_node.get_tree().get_first_node_in_group("player")
 
+	# Build individual cards for each weapon/passive item
 	var order := ["shotgun", "smg", "minigun", "sniper", "missile", "shield", "speed_loader", "golden_touch", "magnet_ring", "toughness", "damage_boost"]
 	for item_key in order:
 		var cfg = MILESTONES[item_key]
@@ -263,7 +164,6 @@ func build_cards() -> void:
 		var pct := clampf(current_val / target_val, 0.0, 1.0)
 		var milestone_met := pct >= 1.0
 
-		# Build the card panel
 		var card := Panel.new()
 		card.custom_minimum_size = Vector2(250, 175)
 		
@@ -274,7 +174,6 @@ func build_cards() -> void:
 		card_style.shadow_offset = Vector2(4, 4)
 		card.add_theme_stylebox_override("panel", card_style)
 		
-		# Apply 16-bit console style border (active/bright gold if unlocked or ready to buy)
 		HudUiKit.decorate_retro_item_card(card, is_unlocked or milestone_met)
 		
 		if cfg["category"] == "weapon":
@@ -333,7 +232,6 @@ func build_cards() -> void:
 
 		# Progress / Purchase controls
 		if not is_unlocked and milestone_met:
-			# Render the BUY button
 			var buy_btn := Button.new()
 			var cost = cfg["cost"]
 			buy_btn.text = "BUY - %d COINS" % cost
@@ -342,7 +240,7 @@ func build_cards() -> void:
 			buy_btn.add_theme_font_size_override("font_size", 11)
 			
 			var btn_style := StyleBoxFlat.new()
-			btn_style.bg_color = Color(1.0, 0.85, 0.0) # Yellow
+			btn_style.bg_color = Color(1.0, 0.85, 0.0)
 			btn_style.border_width_left = 2
 			btn_style.border_width_right = 2
 			btn_style.border_width_top = 2
@@ -362,18 +260,16 @@ func build_cards() -> void:
 								player.unlock_weapon(item_key)
 							else:
 								player.unlock_passive(item_key)
-						# Rebuild cards to update visual state
 						build_cards()
 				)
 			else:
-				# Disabled / cannot afford
 				buy_btn.disabled = true
 				buy_btn.modulate = Color(0.5, 0.5, 0.5, 0.8)
 				buy_btn.text = "NEED %d COINS" % cost
 				
 			card.add_child(buy_btn)
 		else:
-			# Progress text
+			# Progress text with type-specific formatting
 			var prog_lbl := Label.new()
 			if cfg["type"] == "kills":
 				prog_lbl.text = "%d / %d KILLS" % [mini(int(current_val), int(target_val)), int(target_val)]

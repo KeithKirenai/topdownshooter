@@ -1,51 +1,50 @@
-[gd_scene load_steps=8 format=3 uid="uid://main"]
+[gd_scene format=3 uid="uid://main"]
 
-[ext_resource type="Script" path="res://scripts/main.gd" id="1"]
+[ext_resource type="Script" uid="uid://b6vvn560ijirw" path="res://scripts/main.gd" id="1"]
 [ext_resource type="PackedScene" uid="uid://hud" path="res://scenes/hud.tscn" id="2"]
-[ext_resource type="AudioStream" path="res://assets/sounds/game_over.wav" id="3"]
-[ext_resource type="AudioStream" path="res://assets/music/bgm_extended.wav" id="4"]
-[ext_resource type="AudioStream" path="res://assets/music/intermission_bgm.wav" id="5"]
-[ext_resource type="Shader" path="res://shaders/screen_effects.gdshader" id="6"]
+[ext_resource type="AudioStream" uid="uid://bfovqrsm30nwe" path="res://assets/sounds/game_over.wav" id="3"]
+[ext_resource type="AudioStream" uid="uid://dh3kdraluila2" path="res://assets/music/bgm_extended.wav" id="4"]
+[ext_resource type="AudioStream" uid="uid://dqsm1ugncw0uw" path="res://assets/music/intermission_bgm.wav" id="5"]
+[ext_resource type="Shader" uid="uid://ffuyvvx4gcrt" path="res://shaders/screen_effects.gdshader" id="6"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_screen"]
 shader = ExtResource("6")
 shader_parameter/chromatic_aberration = 0.0
 shader_parameter/distortion = 0.04
+shader_parameter/vignette_intensity = 0.8
 
-[node name="Main" type="Node2D"]
+[node name="Main" type="Node2D" unique_id=1361397791]
 script = ExtResource("1")
 
-[node name="SpawnTimer" type="Timer" parent="."]
+[node name="SpawnTimer" type="Timer" parent="." unique_id=1146915320]
 wait_time = 3.0
-autostart = false
 one_shot = true
 
-[node name="ScreenShaderLayer" type="CanvasLayer" parent="."]
-layer = 1
+[node name="ScreenShaderLayer" type="CanvasLayer" parent="." unique_id=482364213]
 
-[node name="BackBufferCopy" type="BackBufferCopy" parent="ScreenShaderLayer"]
+[node name="BackBufferCopy" type="BackBufferCopy" parent="ScreenShaderLayer" unique_id=395458941]
 copy_mode = 2
 
-[node name="ScreenEffects" type="ColorRect" parent="ScreenShaderLayer"]
+[node name="ScreenEffects" type="ColorRect" parent="ScreenShaderLayer" unique_id=100479180]
 material = SubResource("ShaderMaterial_screen")
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 
-[node name="HUD" parent="." instance=ExtResource("2")]
+[node name="HUD" parent="." unique_id=1306068420 instance=ExtResource("2")]
 
-[node name="BGM" type="AudioStreamPlayer" parent="."]
+[node name="BGM" type="AudioStreamPlayer" parent="." unique_id=581373091]
 stream = ExtResource("4")
 volume_db = -8.0
 bus = &"Standard"
 
-[node name="IntermissionBGM" type="AudioStreamPlayer" parent="."]
+[node name="IntermissionBGM" type="AudioStreamPlayer" parent="." unique_id=512519739]
 stream = ExtResource("5")
 volume_db = -10.0
 bus = &"Standard"
 
-[node name="GameOverSound" type="AudioStreamPlayer" parent="."]
+[node name="GameOverSound" type="AudioStreamPlayer" parent="." unique_id=2021995807]
 stream = ExtResource("3")
 bus = &"Priority"
 
